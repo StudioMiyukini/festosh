@@ -1,0 +1,551 @@
+/**
+ * Exhibitor routes — profiles, booth locations, and applications.
+ */
+
+import { Hono } from 'hono';
+import { eq, and } from 'drizzle-orm';
+import crypto from 'crypto';
+import { db } from '../db/index.js';
+import {
+  exhibitorProfiles,
+  boothLocations,
+  boothApplications,
+  editions,
+  festivalMembers,
+} from '../db/schema.js';
+import { authMiddleware } from '../middleware/auth.js';
+import { festivalMemberMiddleware, requireFestivalRole, hasMinRole } from '../middleware/festival-auth.js';
+
+const exhibitorRoutes = new Hono();
+
+function safeParseJson(value: string | null | undefined, fallback: unknown): unknown {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function formatExhibitorProfile(p: typeof exhibitorProfiles.$inferSelect) {
+  return {
+    ...p,
+    social_links: safeParseJson(p.socialLinks, {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// GET /profile — get current user's exhibitor profile
+// ---------------------------------------------------------------------------
+exhibitorRoutes.get('/profile', authMiddleware, async (c) => {
+  try {
+    const userId = c.get('userId');
+
+    const profile = db
+      .select()
+      .from(exhibitorProfiles)
+      .where(eq(exhibitorProfiles.userId, userId))
+      .get();
+
+    if (!profile) {
+      return c.json({ success: true, data: null });
+    }
+
+    return c.json({ success: true, data: formatExhibitorProfile(profile) });
+  } catch (error) {
+    console.error('[exhibitors] Get profile error:', error);
+    return c.json({ success: false, error: 'Failed to fetch exhibitor profile' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /profile — create or update exhibitor profile
+// ---------------------------------------------------------------------------
+exhibitorRoutes.post('/profile', authMiddleware, async (c) => {
+  try {
+    const userId = c.get('userId');
+    const body = await c.req.json();
+    const now = Math.floor(Date.now() / 1000);
+
+    const existing = db
+      .select()
+      .from(exhibitorProfiles)
+      .where(eq(exhibitorProfiles.userId, userId))
+      .get();
+
+    if (existing) {
+      // Update
+      const updateData: Record<string, unknown> = { updatedAt: now };
+      const fields = [
+        'companyName', 'tradeName', 'activityType', 'category', 'description',
+        'logoUrl', 'photoUrl', 'website', 'legalForm', 'siret', 'vatNumber',
+        'contactFirstName', 'contactLastName', 'contactEmail', 'contactPhone',
+        'addressLine1', 'addressLine2', 'postalCode', 'city', 'country',
+      ];
+
+      const keyMap: Record<string, string> = {
+        company_name: 'companyName',
+        trade_name: 'tradeName',
+        activity_type: 'activityType',
+        category: 'category',
+        description: 'description',
+        logo_url: 'logoUrl',
+        photo_url: 'photoUrl',
+        website: 'website',
+        legal_form: 'legalForm',
+        siret: 'siret',
+        vat_number: 'vatNumber',
+        contact_first_name: 'contactFirstName',
+        contact_last_name: 'contactLastName',
+        contact_email: 'contactEmail',
+        contact_phone: 'contactPhone',
+        address_line1: 'addressLine1',
+        address_line2: 'addressLine2',
+        postal_code: 'postalCode',
+        city: 'city',
+        country: 'country',
+      };
+
+      for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
+        if (body[bodyKey] !== undefined) {
+          updateData[schemaKey] = body[bodyKey];
+        }
+      }
+
+      if (body.social_links !== undefined) {
+        updateData.socialLinks = JSON.stringify(body.social_links);
+      }
+
+      db.update(exhibitorProfiles)
+        .set(updateData)
+        .where(eq(exhibitorProfiles.userId, userId))
+        .run();
+
+      const updated = db
+        .select()
+        .from(exhibitorProfiles)
+        .where(eq(exhibitorProfiles.userId, userId))
+        .get();
+
+      return c.json({ success: true, data: formatExhibitorProfile(updated!) });
+    } else {
+      // Create
+      const id = crypto.randomUUID();
+
+      db.insert(exhibitorProfiles)
+        .values({
+          id,
+          userId,
+          companyName: body.company_name || null,
+          tradeName: body.trade_name || null,
+          activityType: body.activity_type || null,
+          category: body.category || null,
+          description: body.description || null,
+          logoUrl: body.logo_url || null,
+          photoUrl: body.photo_url || null,
+          website: body.website || null,
+          socialLinks: JSON.stringify(body.social_links || {}),
+          legalForm: body.legal_form || null,
+          siret: body.siret || null,
+          vatNumber: body.vat_number || null,
+          contactFirstName: body.contact_first_name || null,
+          contactLastName: body.contact_last_name || null,
+          contactEmail: body.contact_email || null,
+          contactPhone: body.contact_phone || null,
+          addressLine1: body.address_line1 || null,
+          addressLine2: body.address_line2 || null,
+          postalCode: body.postal_code || null,
+          city: body.city || null,
+          country: body.country || 'FR',
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      const profile = db
+        .select()
+        .from(exhibitorProfiles)
+        .where(eq(exhibitorProfiles.id, id))
+        .get();
+
+      return c.json({ success: true, data: formatExhibitorProfile(profile!) }, 201);
+    }
+  } catch (error) {
+    console.error('[exhibitors] Create/update profile error:', error);
+    return c.json({ success: false, error: 'Failed to save exhibitor profile' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /edition/:editionId/locations — get booth locations
+// ---------------------------------------------------------------------------
+exhibitorRoutes.get('/edition/:editionId/locations', async (c) => {
+  try {
+    const editionId = c.req.param('editionId');
+
+    const locations = db
+      .select()
+      .from(boothLocations)
+      .where(eq(boothLocations.editionId, editionId))
+      .all();
+
+    const data = locations.map((loc) => ({
+      ...loc,
+      plan_position: safeParseJson(loc.planPosition, {}),
+      equipment_included: safeParseJson(loc.equipmentIncluded, []),
+    }));
+
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error('[exhibitors] List locations error:', error);
+    return c.json({ success: false, error: 'Failed to list booth locations' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /edition/:editionId/locations — create booth location
+// ---------------------------------------------------------------------------
+exhibitorRoutes.post('/edition/:editionId/locations', authMiddleware, async (c) => {
+  try {
+    const editionId = c.req.param('editionId');
+    const body = await c.req.json();
+    const { code, zone, width_m, depth_m, has_electricity, has_water, price_cents, notes } = body;
+
+    if (!code) {
+      return c.json({ success: false, error: 'Booth code is required' }, 400);
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const id = crypto.randomUUID();
+
+    db.insert(boothLocations)
+      .values({
+        id,
+        editionId,
+        code,
+        zone: zone || null,
+        widthM: width_m || null,
+        depthM: depth_m || null,
+        hasElectricity: has_electricity ? 1 : 0,
+        hasWater: has_water ? 1 : 0,
+        priceCents: price_cents || 0,
+        notes: notes || null,
+        isAvailable: 1,
+        equipmentIncluded: JSON.stringify(body.equipment_included || []),
+        planPosition: JSON.stringify(body.plan_position || {}),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    const location = db.select().from(boothLocations).where(eq(boothLocations.id, id)).get();
+
+    return c.json({
+      success: true,
+      data: {
+        ...location,
+        plan_position: safeParseJson(location!.planPosition, {}),
+        equipment_included: safeParseJson(location!.equipmentIncluded, []),
+      },
+    }, 201);
+  } catch (error) {
+    console.error('[exhibitors] Create location error:', error);
+    return c.json({ success: false, error: 'Failed to create booth location' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUT /locations/:id — update location
+// ---------------------------------------------------------------------------
+exhibitorRoutes.put('/locations/:id', authMiddleware, async (c) => {
+  try {
+    const locationId = c.req.param('id');
+    const body = await c.req.json();
+    const now = Math.floor(Date.now() / 1000);
+
+    const location = db.select().from(boothLocations).where(eq(boothLocations.id, locationId)).get();
+    if (!location) {
+      return c.json({ success: false, error: 'Booth location not found' }, 404);
+    }
+
+    const updateData: Record<string, unknown> = { updatedAt: now };
+
+    const keyMap: Record<string, string> = {
+      code: 'code',
+      zone: 'zone',
+      width_m: 'widthM',
+      depth_m: 'depthM',
+      has_electricity: 'hasElectricity',
+      has_water: 'hasWater',
+      price_cents: 'priceCents',
+      is_available: 'isAvailable',
+      notes: 'notes',
+    };
+
+    for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
+      if (body[bodyKey] !== undefined) {
+        // Convert booleans to int for SQLite
+        if (typeof body[bodyKey] === 'boolean') {
+          updateData[schemaKey] = body[bodyKey] ? 1 : 0;
+        } else {
+          updateData[schemaKey] = body[bodyKey];
+        }
+      }
+    }
+
+    if (body.plan_position !== undefined) {
+      updateData.planPosition = JSON.stringify(body.plan_position);
+    }
+    if (body.equipment_included !== undefined) {
+      updateData.equipmentIncluded = JSON.stringify(body.equipment_included);
+    }
+
+    db.update(boothLocations).set(updateData).where(eq(boothLocations.id, locationId)).run();
+
+    const updated = db.select().from(boothLocations).where(eq(boothLocations.id, locationId)).get();
+
+    return c.json({
+      success: true,
+      data: {
+        ...updated,
+        plan_position: safeParseJson(updated!.planPosition, {}),
+        equipment_included: safeParseJson(updated!.equipmentIncluded, []),
+      },
+    });
+  } catch (error) {
+    console.error('[exhibitors] Update location error:', error);
+    return c.json({ success: false, error: 'Failed to update booth location' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /locations/:id — delete location
+// ---------------------------------------------------------------------------
+exhibitorRoutes.delete('/locations/:id', authMiddleware, async (c) => {
+  try {
+    const locationId = c.req.param('id');
+
+    const location = db.select().from(boothLocations).where(eq(boothLocations.id, locationId)).get();
+    if (!location) {
+      return c.json({ success: false, error: 'Booth location not found' }, 404);
+    }
+
+    db.delete(boothLocations).where(eq(boothLocations.id, locationId)).run();
+
+    return c.json({ success: true, data: { message: 'Booth location deleted' } });
+  } catch (error) {
+    console.error('[exhibitors] Delete location error:', error);
+    return c.json({ success: false, error: 'Failed to delete booth location' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /edition/:editionId/applications — list applications (moderator+)
+// ---------------------------------------------------------------------------
+exhibitorRoutes.get('/edition/:editionId/applications', authMiddleware, async (c) => {
+  try {
+    const editionId = c.req.param('editionId');
+
+    const applications = db
+      .select()
+      .from(boothApplications)
+      .where(eq(boothApplications.editionId, editionId))
+      .all();
+
+    const data = applications.map((app) => ({
+      ...app,
+      documents: safeParseJson(app.documents, {}),
+    }));
+
+    return c.json({ success: true, data });
+  } catch (error) {
+    console.error('[exhibitors] List applications error:', error);
+    return c.json({ success: false, error: 'Failed to list applications' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /edition/:editionId/apply — submit application
+// ---------------------------------------------------------------------------
+exhibitorRoutes.post('/edition/:editionId/apply', authMiddleware, async (c) => {
+  try {
+    const editionId = c.req.param('editionId');
+    const userId = c.get('userId');
+    const body = await c.req.json();
+
+    // Get exhibitor profile
+    const profile = db
+      .select()
+      .from(exhibitorProfiles)
+      .where(eq(exhibitorProfiles.userId, userId))
+      .get();
+
+    if (!profile) {
+      return c.json({ success: false, error: 'You need an exhibitor profile first' }, 400);
+    }
+
+    // Check for existing application
+    const existing = db
+      .select()
+      .from(boothApplications)
+      .where(
+        and(
+          eq(boothApplications.editionId, editionId),
+          eq(boothApplications.exhibitorId, profile.id),
+        ),
+      )
+      .get();
+
+    if (existing) {
+      return c.json({ success: false, error: 'You already have an application for this edition' }, 409);
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const id = crypto.randomUUID();
+
+    db.insert(boothApplications)
+      .values({
+        id,
+        editionId,
+        exhibitorId: profile.id,
+        preferredZone: body.preferred_zone || null,
+        requestedWidthM: body.requested_width_m || null,
+        requestedDepthM: body.requested_depth_m || null,
+        needsElectricity: body.needs_electricity ? 1 : 0,
+        needsWater: body.needs_water ? 1 : 0,
+        specialRequests: body.special_requests || null,
+        productsDescription: body.products_description || null,
+        status: 'submitted',
+        documents: JSON.stringify(body.documents || {}),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    const application = db
+      .select()
+      .from(boothApplications)
+      .where(eq(boothApplications.id, id))
+      .get();
+
+    return c.json({
+      success: true,
+      data: {
+        ...application,
+        documents: safeParseJson(application!.documents, {}),
+      },
+    }, 201);
+  } catch (error) {
+    console.error('[exhibitors] Apply error:', error);
+    return c.json({ success: false, error: 'Failed to submit application' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUT /applications/:id/status — update application status
+// ---------------------------------------------------------------------------
+exhibitorRoutes.put('/applications/:id/status', authMiddleware, async (c) => {
+  try {
+    const applicationId = c.req.param('id');
+    const userId = c.get('userId');
+    const { status, review_notes } = await c.req.json();
+
+    if (!status) {
+      return c.json({ success: false, error: 'Status is required' }, 400);
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+
+    db.update(boothApplications)
+      .set({
+        status,
+        reviewedBy: userId,
+        reviewedAt: now,
+        reviewNotes: review_notes || null,
+        updatedAt: now,
+      })
+      .where(eq(boothApplications.id, applicationId))
+      .run();
+
+    const updated = db
+      .select()
+      .from(boothApplications)
+      .where(eq(boothApplications.id, applicationId))
+      .get();
+
+    if (!updated) {
+      return c.json({ success: false, error: 'Application not found' }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        ...updated,
+        documents: safeParseJson(updated.documents, {}),
+      },
+    });
+  } catch (error) {
+    console.error('[exhibitors] Update status error:', error);
+    return c.json({ success: false, error: 'Failed to update application status' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUT /applications/:id/assign-booth — assign booth
+// ---------------------------------------------------------------------------
+exhibitorRoutes.put('/applications/:id/assign-booth', authMiddleware, async (c) => {
+  try {
+    const applicationId = c.req.param('id');
+    const { booth_location_id } = await c.req.json();
+
+    if (!booth_location_id) {
+      return c.json({ success: false, error: 'booth_location_id is required' }, 400);
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+
+    // Verify booth exists
+    const booth = db
+      .select()
+      .from(boothLocations)
+      .where(eq(boothLocations.id, booth_location_id))
+      .get();
+
+    if (!booth) {
+      return c.json({ success: false, error: 'Booth location not found' }, 404);
+    }
+
+    // Assign booth and mark as no longer available
+    db.update(boothApplications)
+      .set({
+        assignedBoothId: booth_location_id,
+        updatedAt: now,
+      })
+      .where(eq(boothApplications.id, applicationId))
+      .run();
+
+    db.update(boothLocations)
+      .set({ isAvailable: 0, updatedAt: now })
+      .where(eq(boothLocations.id, booth_location_id))
+      .run();
+
+    const updated = db
+      .select()
+      .from(boothApplications)
+      .where(eq(boothApplications.id, applicationId))
+      .get();
+
+    return c.json({
+      success: true,
+      data: {
+        ...updated,
+        documents: safeParseJson(updated!.documents, {}),
+      },
+    });
+  } catch (error) {
+    console.error('[exhibitors] Assign booth error:', error);
+    return c.json({ success: false, error: 'Failed to assign booth' }, 500);
+  }
+});
+
+export { exhibitorRoutes };
