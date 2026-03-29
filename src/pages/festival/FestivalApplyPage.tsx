@@ -1,34 +1,94 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Check, ChevronRight, ChevronLeft, Loader2, Building2, Ruler, FileUp, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Check,
+  ChevronRight,
+  ChevronLeft,
+  Loader2,
+  Building2,
+  Ruler,
+  CheckCircle2,
+  LogIn,
+  AlertCircle,
+} from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
+import { useTenantStore } from '@/stores/tenant-store';
+import { api } from '@/lib/api-client';
+import type { BoothApplication } from '@/types/exhibitor';
+
+interface FormData {
+  // Step 1: Company info
+  company_name: string;
+  description: string;
+  website: string;
+  contact_email: string;
+  contact_phone: string;
+  // Step 2: Booth preferences
+  preferred_zone: string;
+  space_needed: string;
+  booth_type: string;
+  special_requirements: string;
+}
+
+const INITIAL_FORM: FormData = {
+  company_name: '',
+  description: '',
+  website: '',
+  contact_email: '',
+  contact_phone: '',
+  preferred_zone: '',
+  space_needed: '',
+  booth_type: '',
+  special_requirements: '',
+};
 
 const STEPS = [
-  { id: 1, label: 'Info entreprise', icon: Building2 },
-  { id: 2, label: 'Besoins stand', icon: Ruler },
-  { id: 3, label: 'Documents', icon: FileUp },
-  { id: 4, label: 'Confirmation', icon: CheckCircle2 },
+  { id: 1, label: 'Informations entreprise', icon: Building2 },
+  { id: 2, label: 'Preferences stand', icon: Ruler },
+  { id: 3, label: 'Confirmation', icon: CheckCircle2 },
+];
+
+const BOOTH_TYPES = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'corner', label: 'Angle' },
+  { value: 'island', label: 'Ilot' },
+  { value: 'outdoor', label: 'Exterieur' },
+];
+
+const SPACE_OPTIONS = [
+  { value: 'small', label: 'Petit (2m x 2m)' },
+  { value: 'medium', label: 'Moyen (3m x 3m)' },
+  { value: 'large', label: 'Grand (4m x 4m)' },
+  { value: 'xl', label: 'Tres grand (6m x 3m)' },
 ];
 
 export function FestivalApplyPage() {
+  const { isAuthenticated, isLoading: authLoading, profile } = useAuthStore();
+  const { festival, activeEdition } = useTenantStore();
+  const slug = festival?.slug ?? '';
+
   const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState<FormData>({
+    ...INITIAL_FORM,
+    contact_email: profile?.email ?? '',
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { isAuthenticated, isLoading } = useAuthStore();
-  const navigate = useNavigate();
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      navigate('/login', { replace: true });
-    }
-  }, [isLoading, isAuthenticated, navigate]);
+  /** Update a single form field. */
+  function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }
 
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-muted-foreground">Chargement...</p>
-      </div>
-    );
+  /** Validate Step 1 fields. */
+  function validateStep1(): boolean {
+    return formData.company_name.trim() !== '' && formData.contact_email.trim() !== '';
+  }
+
+  /** Validate Step 2 fields. */
+  function validateStep2(): boolean {
+    return formData.space_needed !== '';
   }
 
   const handleNext = () => {
@@ -44,12 +104,111 @@ export function FestivalApplyPage() {
   };
 
   const handleSubmit = async () => {
+    if (!festival?.id || !activeEdition?.id) return;
+
     setIsSubmitting(true);
-    // TODO: Wire up to service layer - submit application
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setSubmitError(null);
+
+    const payload = {
+      edition_id: activeEdition.id,
+      company_name: formData.company_name,
+      description: formData.description || null,
+      website: formData.website || null,
+      contact_email: formData.contact_email,
+      contact_phone: formData.contact_phone || null,
+      preferences: [
+        formData.preferred_zone ? `Zone: ${formData.preferred_zone}` : '',
+        formData.space_needed ? `Espace: ${formData.space_needed}` : '',
+        formData.booth_type ? `Type: ${formData.booth_type}` : '',
+        formData.special_requirements ? `Besoins: ${formData.special_requirements}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    };
+
+    const res = await api.post<BoothApplication>(
+      `/exhibitors/festival/${festival.id}/applications`,
+      payload
+    );
+
     setIsSubmitting(false);
-    setCurrentStep(STEPS.length); // Go to confirmation
+
+    if (res.success) {
+      setIsSubmitted(true);
+    } else {
+      setSubmitError(res.error ?? 'Une erreur est survenue lors de la soumission.');
+    }
   };
+
+  // Show login prompt if not authenticated
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 sm:px-6 lg:px-8">
+        <div className="rounded-xl border border-border bg-card p-8 text-center">
+          <div className="mx-auto mb-4 inline-flex rounded-full bg-primary/10 p-4">
+            <LogIn className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="mb-2 text-lg font-semibold text-foreground">
+            Connexion requise
+          </h2>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Vous devez etre connecte pour soumettre une candidature exposant.
+          </p>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <LogIn className="h-4 w-4" />
+            Se connecter
+          </Link>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Pas encore de compte ?{' '}
+            <Link to="/signup" className="text-primary hover:underline">
+              Creer un compte
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Chargement...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Success screen after submission
+  if (isSubmitted) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 sm:px-6 lg:px-8">
+        <div className="rounded-xl border border-border bg-card p-8 text-center">
+          <div className="mx-auto mb-4 inline-flex rounded-full bg-green-100 p-4 dark:bg-green-900/20">
+            <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
+          </div>
+          <h2 className="mb-2 text-lg font-semibold text-foreground">
+            Candidature envoyee !
+          </h2>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Votre candidature a bien ete soumise. L&apos;equipe organisatrice la
+            examinera dans les meilleurs delais. Vous recevrez une notification par
+            email a <strong>{formData.contact_email}</strong>.
+          </p>
+          <Link
+            to={`/f/${slug}`}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Retour a l&apos;accueil
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -111,47 +270,23 @@ export function FestivalApplyPage() {
 
       {/* Step Content */}
       <div className="rounded-xl border border-border bg-card p-6">
-        {/* Step 1: Info entreprise */}
+        {/* Step 1: Company Info */}
         {currentStep === 1 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-foreground">
               Informations sur votre entreprise
             </h2>
-            {/* TODO: Wire up to service layer - use react-hook-form + zod validation */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Nom de l&apos;entreprise / marque
+                Nom de l&apos;entreprise / marque <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
                 placeholder="Mon Entreprise"
-                className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                value={formData.company_name}
+                onChange={(e) => updateField('company_name', e.target.value)}
+                className="w-full rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                SIRET / Numero d&apos;identification
-              </label>
-              <input
-                type="text"
-                placeholder="123 456 789 00012"
-                className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Categorie d&apos;activite
-              </label>
-              <select className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Selectionnez une categorie</option>
-                <option value="artisanat">Artisanat</option>
-                <option value="gastronomie">Gastronomie</option>
-                <option value="mode">Mode</option>
-                <option value="art">Art</option>
-                <option value="technologie">Technologie</option>
-                <option value="bien-etre">Bien-etre</option>
-                <option value="autre">Autre</option>
-              </select>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
@@ -160,132 +295,202 @@ export function FestivalApplyPage() {
               <textarea
                 rows={3}
                 placeholder="Decrivez votre activite et vos produits..."
-                className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                value={formData.description}
+                onChange={(e) => updateField('description', e.target.value)}
+                className="w-full resize-none rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Site web
+              </label>
+              <input
+                type="url"
+                placeholder="https://mon-entreprise.fr"
+                value={formData.website}
+                onChange={(e) => updateField('website', e.target.value)}
+                className="w-full rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                  Email de contact <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="contact@entreprise.fr"
+                  value={formData.contact_email}
+                  onChange={(e) => updateField('contact_email', e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                  Telephone
+                </label>
+                <input
+                  type="tel"
+                  placeholder="06 12 34 56 78"
+                  value={formData.contact_phone}
+                  onChange={(e) => updateField('contact_phone', e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Step 2: Besoins stand */}
+        {/* Step 2: Booth Preferences */}
         {currentStep === 2 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-foreground">
-              Besoins pour votre stand
+              Preferences pour votre stand
             </h2>
-            {/* TODO: Wire up to service layer */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Taille de stand souhaitee
+                Zone preferee
               </label>
-              <select className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <input
+                type="text"
+                placeholder="Ex: Hall A, Zone exterieure..."
+                value={formData.preferred_zone}
+                onChange={(e) => updateField('preferred_zone', e.target.value)}
+                className="w-full rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Taille de stand souhaitee <span className="text-destructive">*</span>
+              </label>
+              <select
+                value={formData.space_needed}
+                onChange={(e) => updateField('space_needed', e.target.value)}
+                className="w-full rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
                 <option value="">Selectionnez une taille</option>
-                <option value="small">Petit (2m x 2m)</option>
-                <option value="medium">Moyen (3m x 3m)</option>
-                <option value="large">Grand (4m x 4m)</option>
-                <option value="xl">Tres grand (6m x 3m)</option>
+                {SPACE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Besoin en electricite
+                Type de stand
               </label>
-              <div className="flex items-center gap-4">
-                <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                  <input type="radio" name="electricity" value="no" className="accent-primary" />
-                  Non
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                  <input type="radio" name="electricity" value="standard" className="accent-primary" />
-                  Standard (220V)
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                  <input type="radio" name="electricity" value="high" className="accent-primary" />
-                  Renforcee
-                </label>
-              </div>
+              <select
+                value={formData.booth_type}
+                onChange={(e) => updateField('booth_type', e.target.value)}
+                className="w-full rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">Selectionnez un type</option>
+                {BOOTH_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Besoin en eau
-              </label>
-              <div className="flex items-center gap-4">
-                <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                  <input type="radio" name="water" value="no" className="accent-primary" />
-                  Non
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                  <input type="radio" name="water" value="yes" className="accent-primary" />
-                  Oui
-                </label>
-              </div>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Commentaires supplementaires
+                Besoins specifiques
               </label>
               <textarea
                 rows={3}
-                placeholder="Equipement specifique, contraintes d'installation..."
-                className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                placeholder="Electricite, eau, equipement specifique, contraintes d'installation..."
+                value={formData.special_requirements}
+                onChange={(e) => updateField('special_requirements', e.target.value)}
+                className="w-full resize-none rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
           </div>
         )}
 
-        {/* Step 3: Documents */}
+        {/* Step 3: Review and Submit */}
         {currentStep === 3 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Documents</h2>
-            {/* TODO: Wire up to service layer - file upload */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Logo / Photo de vos produits
-              </label>
-              <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-border p-8">
-                <div className="text-center">
-                  <FileUp className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Glissez vos fichiers ici ou{' '}
-                    <span className="font-medium text-primary">parcourez</span>
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    PNG, JPG jusqu&apos;a 5 Mo
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Attestation d&apos;assurance (optionnel)
-              </label>
-              <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-border p-8">
-                <div className="text-center">
-                  <FileUp className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Glissez votre fichier ici ou{' '}
-                    <span className="font-medium text-primary">parcourez</span>
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">PDF jusqu&apos;a 10 Mo</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Confirmation */}
-        {currentStep === 4 && (
-          <div className="py-8 text-center">
-            <div className="mx-auto mb-4 inline-flex rounded-full bg-green-100 p-4 dark:bg-green-900/20">
-              <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
-            </div>
-            <h2 className="mb-2 text-lg font-semibold text-foreground">
-              Candidature prete a etre envoyee
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-foreground">
+              Recapitulatif de votre candidature
             </h2>
-            <p className="mb-6 text-sm text-muted-foreground">
-              Verifiez vos informations puis cliquez sur &laquo; Envoyer &raquo; pour
-              soumettre votre candidature.
-            </p>
-            {/* TODO: Wire up to service layer - show summary of entered data */}
+
+            {/* Company Info Summary */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">
+                Informations entreprise
+              </h3>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Entreprise</dt>
+                  <dd className="font-medium text-foreground">{formData.company_name || '—'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Email</dt>
+                  <dd className="font-medium text-foreground">{formData.contact_email || '—'}</dd>
+                </div>
+                {formData.contact_phone && (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Telephone</dt>
+                    <dd className="font-medium text-foreground">{formData.contact_phone}</dd>
+                  </div>
+                )}
+                {formData.website && (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Site web</dt>
+                    <dd className="font-medium text-foreground">{formData.website}</dd>
+                  </div>
+                )}
+                {formData.description && (
+                  <div>
+                    <dt className="mb-1 text-muted-foreground">Description</dt>
+                    <dd className="text-foreground">{formData.description}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            {/* Booth Preferences Summary */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">
+                Preferences stand
+              </h3>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Taille</dt>
+                  <dd className="font-medium text-foreground">
+                    {SPACE_OPTIONS.find((o) => o.value === formData.space_needed)?.label || '—'}
+                  </dd>
+                </div>
+                {formData.booth_type && (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Type</dt>
+                    <dd className="font-medium text-foreground">
+                      {BOOTH_TYPES.find((o) => o.value === formData.booth_type)?.label || formData.booth_type}
+                    </dd>
+                  </div>
+                )}
+                {formData.preferred_zone && (
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Zone preferee</dt>
+                    <dd className="font-medium text-foreground">{formData.preferred_zone}</dd>
+                  </div>
+                )}
+                {formData.special_requirements && (
+                  <div>
+                    <dt className="mb-1 text-muted-foreground">Besoins specifiques</dt>
+                    <dd className="text-foreground">{formData.special_requirements}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            {submitError && (
+              <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
+                <p className="text-sm text-destructive">{submitError}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -306,7 +511,11 @@ export function FestivalApplyPage() {
           <button
             type="button"
             onClick={handleNext}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            disabled={
+              (currentStep === 1 && !validateStep1()) ||
+              (currentStep === 2 && !validateStep2())
+            }
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             Suivant
             <ChevronRight className="h-4 w-4" />

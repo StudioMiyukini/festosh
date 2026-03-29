@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 
 // Layouts
 import { PlatformLayout } from '@/layouts/PlatformLayout';
@@ -35,9 +35,11 @@ import { AdminSettingsPage } from '@/pages/festival-admin/AdminSettingsPage';
 import { NotFoundPage } from '@/pages/platform/NotFoundPage';
 
 /**
- * Platform routes (festosh.miyukini.com or localhost)
+ * Single unified router.
+ * Platform pages live at root paths.
+ * Festival pages live under /f/:slug/...
  */
-export const platformRouter = createBrowserRouter([
+export const router = createBrowserRouter([
   // Auth routes
   {
     element: <AuthLayout />,
@@ -58,29 +60,22 @@ export const platformRouter = createBrowserRouter([
     ],
   },
 
-  // 404
-  { path: '*', element: <NotFoundPage /> },
-]);
-
-/**
- * Festival sub-site routes ({slug}.miyukini.com)
- */
-export const festivalRouter = createBrowserRouter([
-  // Public festival pages
+  // Festival public routes
   {
+    path: '/f/:slug',
     element: <FestivalPublicLayout />,
     children: [
-      { path: '/', element: <FestivalHomePage /> },
-      { path: '/schedule', element: <FestivalSchedulePage /> },
-      { path: '/map', element: <FestivalMapPage /> },
-      { path: '/exhibitors', element: <FestivalExhibitorsPage /> },
-      { path: '/apply', element: <FestivalApplyPage /> },
+      { index: true, element: <FestivalHomePage /> },
+      { path: 'schedule', element: <FestivalSchedulePage /> },
+      { path: 'map', element: <FestivalMapPage /> },
+      { path: 'exhibitors', element: <FestivalExhibitorsPage /> },
+      { path: 'apply', element: <FestivalApplyPage /> },
     ],
   },
 
-  // Festival admin panel
+  // Festival admin routes
   {
-    path: '/admin',
+    path: '/f/:slug/admin',
     element: <FestivalAdminLayout />,
     children: [
       { index: true, element: <AdminOverviewPage /> },
@@ -94,6 +89,6 @@ export const festivalRouter = createBrowserRouter([
     ],
   },
 
-  // Festival 404
-  { path: '*', element: <Navigate to="/" replace /> },
+  // 404
+  { path: '*', element: <NotFoundPage /> },
 ]);

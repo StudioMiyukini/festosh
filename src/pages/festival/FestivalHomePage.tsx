@@ -1,11 +1,47 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, MapPin, Store, ArrowRight } from 'lucide-react';
+import { CalendarDays, MapPin, Store, ArrowRight, Clock, Loader2 } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
+import { api, ApiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/date';
+import type { Event } from '@/types/programming';
+import type { ExhibitorProfile } from '@/types/exhibitor';
 
 export function FestivalHomePage() {
   const { festival, activeEdition } = useTenantStore();
-
   const slug = festival?.slug ?? '';
+
+  const [events, setEvents] = useState<Event[]>([]);
+  const [exhibitors, setExhibitors] = useState<ExhibitorProfile[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingExhibitors, setLoadingExhibitors] = useState(true);
+
+  useEffect(() => {
+    if (!festival?.id) return;
+
+    // Fetch upcoming events (up to 4)
+    const editionParam = activeEdition?.id
+      ? ApiClient.queryString({ edition_id: activeEdition.id })
+      : '';
+    api
+      .get<Event[]>(`/events/festival/${festival.id}${editionParam}`)
+      .then((res) => {
+        if (res.success && res.data) {
+          setEvents(res.data.slice(0, 4));
+        }
+      })
+      .finally(() => setLoadingEvents(false));
+
+    // Fetch exhibitor profiles (up to 6)
+    api
+      .get<ExhibitorProfile[]>(`/exhibitors/festival/${festival.id}/profiles`)
+      .then((res) => {
+        if (res.success && res.data) {
+          setExhibitors(res.data.slice(0, 6));
+        }
+      })
+      .finally(() => setLoadingExhibitors(false));
+  }, [festival?.id, activeEdition?.id]);
 
   return (
     <div>
@@ -24,10 +60,10 @@ export function FestivalHomePage() {
               {festival?.name ?? 'Festival'}
             </h1>
             {activeEdition && (
-              <div className="mt-4 flex items-center justify-center gap-4 text-muted-foreground">
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="h-4 w-4" />
-                  {activeEdition.start_date} &mdash; {activeEdition.end_date}
+                  {formatDate(activeEdition.start_date)} &mdash; {formatDate(activeEdition.end_date)}
                 </span>
                 {festival?.location_name && (
                   <span className="inline-flex items-center gap-1.5">
@@ -67,11 +103,11 @@ export function FestivalHomePage() {
         </section>
       )}
 
-      {/* Upcoming Events Preview */}
+      {/* Prochains evenements */}
       <section className="border-t border-border bg-muted/30 py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-foreground">Evenements a venir</h2>
+            <h2 className="text-2xl font-bold text-foreground">Prochains evenements</h2>
             <Link
               to={`/f/${slug}/schedule`}
               className="text-sm font-medium text-primary hover:underline"
@@ -79,33 +115,57 @@ export function FestivalHomePage() {
               Voir tout
             </Link>
           </div>
-          {/* TODO: Wire up to service layer - fetch upcoming events */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-border bg-card p-5"
-              >
-                <div className="mb-2 inline-block rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                  Concert
+
+          {loadingEvents ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : events.length === 0 ? (
+            <div className="rounded-lg border border-border bg-card p-12 text-center">
+              <CalendarDays className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Aucun evenement programme pour le moment.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {events.map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-sm"
+                >
+                  {event.category && (
+                    <div className="mb-2 inline-block rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                      {event.category}
+                    </div>
+                  )}
+                  <h3 className="mb-1 text-base font-semibold text-foreground">
+                    {event.title}
+                  </h3>
+                  <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatDate(event.start_time)}
+                    </span>
+                    {event.venue_id && (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {event.venue_id}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <h3 className="mb-1 text-base font-semibold text-foreground">
-                  Evenement exemple {i}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Samedi 14:00 &mdash; Scene principale
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Exhibitor Highlights */}
+      {/* Nos exposants */}
       <section className="py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-foreground">Exposants en vedette</h2>
+            <h2 className="text-2xl font-bold text-foreground">Nos exposants</h2>
             <Link
               to={`/f/${slug}/exhibitors`}
               className="text-sm font-medium text-primary hover:underline"
@@ -113,23 +173,48 @@ export function FestivalHomePage() {
               Voir tous les exposants
             </Link>
           </div>
-          {/* TODO: Wire up to service layer - fetch featured exhibitors */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-border bg-card p-5 text-center"
-              >
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                  <Store className="h-5 w-5 text-muted-foreground" />
+
+          {loadingExhibitors ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : exhibitors.length === 0 ? (
+            <div className="rounded-lg border border-border bg-card p-12 text-center">
+              <Store className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Les exposants seront annonces prochainement.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              {exhibitors.map((exhibitor) => (
+                <div
+                  key={exhibitor.id}
+                  className="rounded-xl border border-border bg-card p-5 text-center transition-shadow hover:shadow-sm"
+                >
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    {exhibitor.logo_url ? (
+                      <img
+                        src={exhibitor.logo_url}
+                        alt={exhibitor.company_name}
+                        className="h-12 w-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <Store className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {exhibitor.company_name}
+                  </h3>
+                  {exhibitor.description && (
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {exhibitor.description}
+                    </p>
+                  )}
                 </div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Exposant {i}
-                </h3>
-                <p className="mt-1 text-xs text-muted-foreground">Artisanat</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

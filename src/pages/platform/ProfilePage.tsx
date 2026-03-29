@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Save, Loader2, Moon, Sun } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
+import { authService } from '@/services/auth.service';
 
 export function ProfilePage() {
-  const { isAuthenticated, isLoading, profile } = useAuthStore();
+  const { isAuthenticated, isLoading, profile, setProfile } = useAuthStore();
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(
+    document.documentElement.classList.contains('dark')
+  );
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -29,7 +32,7 @@ export function ProfilePage() {
   if (isLoading || !profile) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-muted-foreground">Chargement...</p>
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -39,21 +42,26 @@ export function ProfilePage() {
     setIsSaving(true);
     setSaveMessage(null);
 
-    try {
-      // TODO: Wire up to service layer - update profile via authService
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setSaveMessage('Profil mis a jour avec succes.');
-    } catch {
-      setSaveMessage('Erreur lors de la mise a jour.');
-    } finally {
-      setIsSaving(false);
+    const result = await authService.updateProfile({
+      display_name: displayName || null,
+      bio: bio || null,
+    });
+
+    if (result.data) {
+      setProfile(result.data);
+      setSaveMessage({ type: 'success', text: 'Profil mis a jour avec succes.' });
+    } else {
+      setSaveMessage({ type: 'error', text: result.error?.message || 'Erreur lors de la mise a jour.' });
     }
+
+    setIsSaving(false);
   };
 
   const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    // TODO: Wire up to service layer - persist theme preference
-    document.documentElement.classList.toggle('dark');
+    const newDark = !isDarkMode;
+    setIsDarkMode(newDark);
+    document.documentElement.classList.toggle('dark', newDark);
+    localStorage.setItem('festosh-theme', newDark ? 'dark' : 'light');
   };
 
   return (
@@ -86,8 +94,12 @@ export function ProfilePage() {
 
       {/* Save Message */}
       {saveMessage && (
-        <div className="mb-6 rounded-md border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
-          {saveMessage}
+        <div className={`mb-6 rounded-md border px-4 py-3 text-sm ${
+          saveMessage.type === 'success'
+            ? 'border-primary/20 bg-primary/10 text-primary'
+            : 'border-destructive/20 bg-destructive/10 text-destructive'
+        }`}>
+          {saveMessage.text}
         </div>
       )}
 
@@ -99,7 +111,6 @@ export function ProfilePage() {
           </h2>
 
           <div className="space-y-4">
-            {/* Username (read-only) */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">
                 Nom d&apos;utilisateur
@@ -112,7 +123,6 @@ export function ProfilePage() {
               />
             </div>
 
-            {/* Display Name */}
             <div>
               <label htmlFor="displayName" className="mb-1.5 block text-sm font-medium text-foreground">
                 Nom d&apos;affichage
@@ -127,11 +137,8 @@ export function ProfilePage() {
               />
             </div>
 
-            {/* Email (read-only) */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Email
-              </label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Email</label>
               <input
                 type="email"
                 value={profile.email ?? ''}
@@ -140,7 +147,6 @@ export function ProfilePage() {
               />
             </div>
 
-            {/* Bio */}
             <div>
               <label htmlFor="bio" className="mb-1.5 block text-sm font-medium text-foreground">
                 Biographie
@@ -172,11 +178,7 @@ export function ProfilePage() {
               onClick={toggleTheme}
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-accent"
             >
-              {isDarkMode ? (
-                <Moon className="h-4 w-4" />
-              ) : (
-                <Sun className="h-4 w-4" />
-              )}
+              {isDarkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
               {isDarkMode ? 'Sombre' : 'Clair'}
             </button>
           </div>
@@ -189,11 +191,7 @@ export function ProfilePage() {
             disabled={isSaving}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Enregistrer
           </button>
         </div>

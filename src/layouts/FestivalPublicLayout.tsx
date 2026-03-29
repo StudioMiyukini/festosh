@@ -1,36 +1,40 @@
 import { useState, useEffect } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
-import { useTenantStore } from '@/stores/tenant-store';
-
-const getFestivalNavLinks = (slug: string) => [
-  { to: `/f/${slug}`, label: 'Accueil' },
-  { to: `/f/${slug}/schedule`, label: 'Programme' },
-  { to: `/f/${slug}/map`, label: 'Plan' },
-  { to: `/f/${slug}/exhibitors`, label: 'Exposants' },
-  { to: `/f/${slug}/apply`, label: 'Candidature' },
-];
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, LogIn, LogOut, User, Shield } from 'lucide-react';
+import { useFestivalContext } from '@/hooks/use-festival-context';
+import { useAuthStore } from '@/stores/auth-store';
+import { useAuth } from '@/hooks/use-auth';
+import { useFestivalRole } from '@/hooks/use-festival-role';
+import { LoadingScreen } from '@/components/shared/LoadingScreen';
 
 export function FestivalPublicLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { festival } = useTenantStore();
+  const { festival, isResolving, error, slug } = useFestivalContext();
+  const { isAuthenticated, profile } = useAuthStore();
+  const { signOut } = useAuth();
+  const { isAdmin, isEditor } = useFestivalRole();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const slug = festival?.slug ?? '';
-  const navLinks = getFestivalNavLinks(slug);
+  const navLinks = [
+    { to: `/f/${slug}`, label: 'Accueil', exact: true },
+    { to: `/f/${slug}/schedule`, label: 'Programme' },
+    { to: `/f/${slug}/map`, label: 'Plan' },
+    { to: `/f/${slug}/exhibitors`, label: 'Exposants' },
+    { to: `/f/${slug}/apply`, label: 'Candidature' },
+  ];
 
   // Apply festival theme colors as CSS custom properties
   useEffect(() => {
     const root = document.documentElement;
     if (festival?.theme_colors) {
       const { primary, secondary, accent, background, text } = festival.theme_colors;
-      root.style.setProperty('--festival-primary', primary);
-      root.style.setProperty('--festival-secondary', secondary);
-      root.style.setProperty('--festival-accent', accent);
-      root.style.setProperty('--festival-bg', background);
-      root.style.setProperty('--festival-text', text);
+      if (primary) root.style.setProperty('--festival-primary', primary);
+      if (secondary) root.style.setProperty('--festival-secondary', secondary);
+      if (accent) root.style.setProperty('--festival-accent', accent);
+      if (background) root.style.setProperty('--festival-bg', background);
+      if (text) root.style.setProperty('--festival-text', text);
     }
-
     return () => {
       root.style.removeProperty('--festival-primary');
       root.style.removeProperty('--festival-secondary');
@@ -40,8 +44,30 @@ export function FestivalPublicLayout() {
     };
   }, [festival?.theme_colors]);
 
-  const isActive = (path: string) => {
-    return location.pathname === path;
+  if (isResolving) return <LoadingScreen />;
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <h1 className="text-4xl font-bold text-foreground">Festival introuvable</h1>
+          <p className="text-muted-foreground">{error}</p>
+          <Link to="/" className="inline-block text-primary hover:underline">
+            Retour a Festosh
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isActive = (path: string, exact?: boolean) => {
+    if (exact) return location.pathname === path;
+    return location.pathname.startsWith(path);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
   };
 
   return (
@@ -83,12 +109,12 @@ export function FestivalPublicLayout() {
                 key={link.to}
                 to={link.to}
                 className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive(link.to)
+                  isActive(link.to, link.exact)
                     ? 'text-primary'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
                 style={
-                  isActive(link.to)
+                  isActive(link.to, link.exact)
                     ? { color: 'var(--festival-primary, hsl(var(--primary)))' }
                     : undefined
                 }
@@ -97,6 +123,37 @@ export function FestivalPublicLayout() {
               </Link>
             ))}
           </nav>
+
+          {/* Desktop Auth + Admin */}
+          <div className="hidden items-center gap-2 md:flex">
+            {(isAdmin || isEditor) && (
+              <Link
+                to={`/f/${slug}/admin`}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Admin
+              </Link>
+            )}
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Deconnexion
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                Connexion
+              </Link>
+            )}
+          </div>
 
           {/* Mobile Hamburger */}
           <button
@@ -119,7 +176,7 @@ export function FestivalPublicLayout() {
                   to={link.to}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive(link.to)
+                    isActive(link.to, link.exact)
                       ? 'text-primary'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
@@ -127,6 +184,37 @@ export function FestivalPublicLayout() {
                   {link.label}
                 </Link>
               ))}
+              <div className="mt-2 border-t border-border pt-2">
+                {(isAdmin || isEditor) && (
+                  <Link
+                    to={`/f/${slug}/admin`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Administration
+                  </Link>
+                )}
+                {isAuthenticated ? (
+                  <button
+                    type="button"
+                    onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-accent"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Se deconnecter
+                  </button>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    Se connecter
+                  </Link>
+                )}
+              </div>
             </nav>
           </div>
         )}
@@ -152,41 +240,27 @@ export function FestivalPublicLayout() {
             {festival?.social_links && (
               <div className="flex items-center gap-3">
                 {festival.social_links.website && (
-                  <a
-                    href={festival.social_links.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
+                  <a href={festival.social_links.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
                     Site web
                   </a>
                 )}
                 {festival.social_links.instagram && (
-                  <a
-                    href={festival.social_links.instagram}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
+                  <a href={festival.social_links.instagram} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
                     Instagram
                   </a>
                 )}
                 {festival.social_links.facebook && (
-                  <a
-                    href={festival.social_links.facebook}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
+                  <a href={festival.social_links.facebook} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
                     Facebook
                   </a>
                 )}
               </div>
             )}
           </div>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Propulse par Festosh
-          </p>
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+            <span>Propulse par</span>
+            <Link to="/" className="font-medium text-primary hover:underline">Festosh</Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Menu, X, User, LogIn } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, User, LogIn, LogOut, ChevronDown } from 'lucide-react';
 import { Logo } from '@/components/shared/Logo';
 import { useAuthStore } from '@/stores/auth-store';
+import { useAuth } from '@/hooks/use-auth';
 
 const NAV_LINKS = [
   { to: '/', label: 'Accueil' },
@@ -12,12 +13,34 @@ const NAV_LINKS = [
 
 export function PlatformLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { isAuthenticated, profile } = useAuthStore();
+  const { signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
+  };
+
+  // Close user menu on click outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setUserMenuOpen(false);
+    setMobileMenuOpen(false);
+    navigate('/');
   };
 
   return (
@@ -47,24 +70,61 @@ export function PlatformLayout() {
             ))}
           </nav>
 
-          {/* Desktop Auth Buttons */}
+          {/* Desktop Auth */}
           <div className="hidden items-center gap-2 md:flex">
             {isAuthenticated ? (
-              <Link
-                to="/profile"
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <User className="h-4 w-4" />
-                {profile?.display_name || profile?.username || 'Mon profil'}
-              </Link>
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  <User className="h-4 w-4" />
+                  {profile?.display_name || profile?.username || 'Mon compte'}
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-lg">
+                    <div className="border-b border-border px-3 py-2">
+                      <p className="text-sm font-medium text-foreground">{profile?.display_name || profile?.username}</p>
+                      <p className="text-xs text-muted-foreground">{profile?.email}</p>
+                    </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
+                    >
+                      <User className="h-4 w-4" />
+                      Mon profil
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-accent"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Se deconnecter
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <LogIn className="h-4 w-4" />
-                Se connecter
-              </Link>
+              <>
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Connexion
+                </Link>
+                <Link
+                  to="/signup"
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  S'inscrire
+                </Link>
+              </>
             )}
           </div>
 
@@ -99,23 +159,42 @@ export function PlatformLayout() {
               ))}
               <div className="mt-2 border-t border-border pt-2">
                 {isAuthenticated ? (
-                  <Link
-                    to="/profile"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
-                  >
-                    <User className="h-4 w-4" />
-                    Mon profil
-                  </Link>
+                  <>
+                    <Link
+                      to="/profile"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                    >
+                      <User className="h-4 w-4" />
+                      Mon profil
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-accent"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Se deconnecter
+                    </button>
+                  </>
                 ) : (
-                  <Link
-                    to="/login"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
-                  >
-                    <LogIn className="h-4 w-4" />
-                    Se connecter
-                  </Link>
+                  <>
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                    >
+                      <LogIn className="h-4 w-4" />
+                      Se connecter
+                    </Link>
+                    <Link
+                      to="/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-accent"
+                    >
+                      S'inscrire
+                    </Link>
+                  </>
                 )}
               </div>
             </nav>

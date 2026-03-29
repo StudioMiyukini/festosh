@@ -1,80 +1,69 @@
-import { useState } from 'react';
-import { Search, Store, MapPin, Filter } from 'lucide-react';
-
-// TODO: Wire up to service layer - fetch exhibitors from edition
-const PLACEHOLDER_CATEGORIES = ['Artisanat', 'Gastronomie', 'Mode', 'Art', 'Technologie', 'Bien-etre'];
-
-const PLACEHOLDER_EXHIBITORS = [
-  {
-    id: '1',
-    name: 'Atelier du Bois',
-    category: 'Artisanat',
-    booth: 'A-12',
-    description: 'Creations artisanales en bois recycle.',
-  },
-  {
-    id: '2',
-    name: 'La Fabrique Gourmande',
-    category: 'Gastronomie',
-    booth: 'B-03',
-    description: 'Confitures et miels artisanaux de la region.',
-  },
-  {
-    id: '3',
-    name: 'Studio Crea',
-    category: 'Art',
-    booth: 'C-07',
-    description: 'Illustrations et peintures originales.',
-  },
-  {
-    id: '4',
-    name: 'EcoStyle',
-    category: 'Mode',
-    booth: 'A-05',
-    description: 'Vetements eco-responsables et accessoires.',
-  },
-  {
-    id: '5',
-    name: 'TechLab',
-    category: 'Technologie',
-    booth: 'D-01',
-    description: 'Innovations tech et gadgets connectes.',
-  },
-  {
-    id: '6',
-    name: 'Zen & Harmonie',
-    category: 'Bien-etre',
-    booth: 'B-08',
-    description: 'Huiles essentielles et soins naturels.',
-  },
-  {
-    id: '7',
-    name: 'Poterie du Sud',
-    category: 'Artisanat',
-    booth: 'A-15',
-    description: 'Poteries et ceramiques faites main.',
-  },
-  {
-    id: '8',
-    name: 'Chocolaterie Fine',
-    category: 'Gastronomie',
-    booth: 'B-11',
-    description: 'Chocolats artisanaux et pralines.',
-  },
-];
+import { useEffect, useMemo, useState } from 'react';
+import { Search, Store, MapPin, Loader2, Globe, Mail } from 'lucide-react';
+import { useTenantStore } from '@/stores/tenant-store';
+import { api } from '@/lib/api-client';
+import type { ExhibitorProfile, BoothLocation } from '@/types/exhibitor';
 
 export function FestivalExhibitorsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { festival } = useTenantStore();
 
-  const filteredExhibitors = PLACEHOLDER_EXHIBITORS.filter((ex) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ex.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = !selectedCategory || ex.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const [exhibitors, setExhibitors] = useState<ExhibitorProfile[]>([]);
+  const [booths, setBooths] = useState<BoothLocation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (!festival?.id) return;
+
+    setLoading(true);
+
+    Promise.all([
+      api.get<ExhibitorProfile[]>(`/exhibitors/festival/${festival.id}/profiles`),
+      api.get<BoothLocation[]>(`/exhibitors/festival/${festival.id}/booths`),
+    ])
+      .then(([profilesRes, boothsRes]) => {
+        if (profilesRes.success && profilesRes.data) {
+          setExhibitors(profilesRes.data);
+        }
+        if (boothsRes.success && boothsRes.data) {
+          setBooths(boothsRes.data);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [festival?.id]);
+
+  // Build a lookup: exhibitor_id -> booth info
+  // Note: booths don't have an exhibitor_id directly, so we match via assigned_booth_id
+  // from applications. For now, we show booths as a flat list alongside exhibitors.
+  const boothMap = useMemo(() => {
+    const map = new Map<string, BoothLocation>();
+    for (const b of booths) {
+      map.set(b.id, b);
+    }
+    return map;
+  }, [booths]);
+
+  // Filter exhibitors by company name
+  const filteredExhibitors = useMemo(() => {
+    if (!searchQuery.trim()) return exhibitors;
+    const query = searchQuery.toLowerCase();
+    return exhibitors.filter(
+      (ex) =>
+        ex.company_name.toLowerCase().includes(query) ||
+        (ex.description && ex.description.toLowerCase().includes(query))
+    );
+  }, [exhibitors, searchQuery]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Chargement des exposants...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -86,7 +75,7 @@ export function FestivalExhibitorsPage() {
       </div>
 
       {/* Search Bar */}
-      <div className="relative mb-6">
+      <div className="relative mb-8">
         <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
@@ -97,43 +86,24 @@ export function FestivalExhibitorsPage() {
         />
       </div>
 
-      {/* Category Filter */}
-      <div className="mb-8 flex items-center gap-3">
-        <Filter className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              !selectedCategory
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            Tout
-          </button>
-          {PLACEHOLDER_CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                selectedCategory === cat
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Exhibitor Grid */}
       {filteredExhibitors.length === 0 ? (
         <div className="rounded-lg border border-border bg-card p-12 text-center">
           <Store className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Aucun exposant ne correspond a votre recherche.
-          </p>
+          {exhibitors.length === 0 ? (
+            <>
+              <h2 className="mb-2 text-lg font-semibold text-foreground">
+                Aucun exposant pour le moment
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Les exposants seront annonces prochainement.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Aucun exposant ne correspond a votre recherche.
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -144,22 +114,63 @@ export function FestivalExhibitorsPage() {
             >
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Store className="h-5 w-5 text-primary" />
+                  {exhibitor.logo_url ? (
+                    <img
+                      src={exhibitor.logo_url}
+                      alt={exhibitor.company_name}
+                      className="h-10 w-10 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <Store className="h-5 w-5 text-primary" />
+                  )}
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  <MapPin className="h-2.5 w-2.5" />
-                  {exhibitor.booth}
-                </span>
               </div>
-              <h3 className="text-sm font-semibold text-foreground">{exhibitor.name}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">{exhibitor.description}</p>
-              <div className="mt-3">
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  {exhibitor.category}
-                </span>
+              <h3 className="text-sm font-semibold text-foreground">
+                {exhibitor.company_name}
+              </h3>
+              {exhibitor.description && (
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {exhibitor.description}
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {exhibitor.city && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <MapPin className="h-2.5 w-2.5" />
+                    {exhibitor.city}
+                  </span>
+                )}
+                {exhibitor.website_url && (
+                  <a
+                    href={exhibitor.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                  >
+                    <Globe className="h-2.5 w-2.5" />
+                    Site web
+                  </a>
+                )}
+                {exhibitor.contact_email && (
+                  <a
+                    href={`mailto:${exhibitor.contact_email}`}
+                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                  >
+                    <Mail className="h-2.5 w-2.5" />
+                    Contact
+                  </a>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Results count */}
+      {filteredExhibitors.length > 0 && (
+        <div className="mt-6 text-center text-xs text-muted-foreground">
+          {filteredExhibitors.length} exposant{filteredExhibitors.length > 1 ? 's' : ''}{' '}
+          {searchQuery.trim() ? 'trouve(s)' : 'au total'}
         </div>
       )}
     </div>
