@@ -4,18 +4,22 @@ import { Plus, Heart, FileText, BarChart3, CalendarDays, Loader2, ExternalLink }
 import { useAuthStore } from '@/stores/auth-store';
 import { festivalService } from '@/services/festival.service';
 import { EmptyState } from '@/components/shared/EmptyState';
-import type { Festival } from '@/types/festival';
-
-interface FestivalWithRole {
-  festival: Festival;
-  role: string;
+interface FestivalItem {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  location_name?: string | null;
+  city?: string | null;
+  status: string;
+  member_role: string;
 }
 
 export function DashboardPage() {
   const { isAuthenticated, isLoading, profile } = useAuthStore();
   const navigate = useNavigate();
 
-  const [festivals, setFestivals] = useState<FestivalWithRole[]>([]);
+  const [festivals, setFestivals] = useState<FestivalItem[]>([]);
   const [loadingFestivals, setLoadingFestivals] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -31,7 +35,8 @@ export function DashboardPage() {
 
     festivalService.getMyFestivals().then((result) => {
       if (result.data) {
-        setFestivals(result.data.map((m) => ({ festival: m.festival, role: m.role })));
+        // API returns flat objects with member_role field
+        setFestivals(result.data as unknown as FestivalItem[]);
       }
       setLoadingFestivals(false);
     });
@@ -99,41 +104,41 @@ export function DashboardPage() {
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {festivals.map(({ festival, role: festivalRole }) => (
+            {festivals.map((f) => (
               <div
-                key={festival.id}
+                key={f.id}
                 className="rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md"
               >
                 <div className="mb-3 flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-foreground">{festival.name}</h3>
-                    {festival.location_name && (
-                      <p className="text-xs text-muted-foreground">{festival.location_name}</p>
+                    <h3 className="font-semibold text-foreground">{f.name}</h3>
+                    {(f.location_name || f.city) && (
+                      <p className="text-xs text-muted-foreground">{f.location_name || f.city}</p>
                     )}
                   </div>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    festival.status === 'published'
+                    f.status === 'published'
                       ? 'bg-green-100 text-green-700'
-                      : festival.status === 'archived'
+                      : f.status === 'archived'
                       ? 'bg-gray-100 text-gray-600'
                       : 'bg-yellow-100 text-yellow-700'
                   }`}>
-                    {festival.status === 'published' ? 'Publie' : festival.status === 'archived' ? 'Archive' : 'Brouillon'}
+                    {f.status === 'published' ? 'Publie' : f.status === 'archived' ? 'Archive' : 'Brouillon'}
                   </span>
                 </div>
                 <p className="mb-4 text-xs text-muted-foreground">
-                  Role : <span className="font-medium text-foreground">{festivalRole}</span>
+                  Role : <span className="font-medium text-foreground">{f.member_role}</span>
                 </p>
                 <div className="flex items-center gap-2">
                   <Link
-                    to={`/f/${festival.slug}/admin`}
+                    to={`/f/${f.slug}/admin`}
                     className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                   >
                     <BarChart3 className="h-3.5 w-3.5" />
                     Administrer
                   </Link>
                   <Link
-                    to={`/f/${festival.slug}`}
+                    to={`/f/${f.slug}`}
                     className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -203,7 +208,7 @@ export function DashboardPage() {
       {/* Create Festival Modal */}
       {showCreateModal && (
         <CreateFestivalModal onClose={() => setShowCreateModal(false)} onCreated={(f) => {
-          setFestivals((prev) => [...prev, { festival: f, role: 'owner' }]);
+          setFestivals((prev) => [...prev, { ...f, member_role: 'owner' } as unknown as FestivalItem]);
           setShowCreateModal(false);
         }} />
       )}
@@ -211,7 +216,7 @@ export function DashboardPage() {
   );
 }
 
-function CreateFestivalModal({ onClose, onCreated }: { onClose: () => void; onCreated: (f: Festival) => void }) {
+function CreateFestivalModal({ onClose, onCreated }: { onClose: () => void; onCreated: (f: Record<string, unknown>) => void }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [city, setCity] = useState('');
@@ -241,7 +246,7 @@ function CreateFestivalModal({ onClose, onCreated }: { onClose: () => void; onCr
     }
 
     if (result.data) {
-      onCreated(result.data);
+      onCreated(result.data as unknown as Record<string, unknown>);
     }
   };
 
