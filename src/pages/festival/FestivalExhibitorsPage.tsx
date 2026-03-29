@@ -140,9 +140,9 @@ export function FestivalExhibitorsPage() {
                     {exhibitor.city}
                   </span>
                 )}
-                {exhibitor.website_url && (
+                {(exhibitor as unknown as { website?: string }).website && (
                   <a
-                    href={exhibitor.website_url}
+                    href={(exhibitor as unknown as { website?: string }).website!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"

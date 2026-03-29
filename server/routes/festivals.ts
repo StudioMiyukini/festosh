@@ -42,9 +42,7 @@ festivalRoutes.get('/', authMiddleware, async (c) => {
       .all();
 
     const data = memberships.map((m) => ({
-      ...m.festival,
-      tags: safeParseJson(m.festival.tags, []),
-      social_links: safeParseJson(m.festival.socialLinks, {}),
+      ...formatFestival(m.festival),
       member_role: m.role,
       joined_at: m.joinedAt,
     }));
@@ -139,11 +137,7 @@ festivalRoutes.post('/', authMiddleware, requireRole(['organizer', 'admin']), as
 
     return c.json({
       success: true,
-      data: {
-        ...festival,
-        tags: safeParseJson(festival!.tags, []),
-        social_links: safeParseJson(festival!.socialLinks, {}),
-      },
+      data: formatFestival(festival!),
     }, 201);
   } catch (error) {
     console.error('[festivals] Create error:', error);
@@ -170,11 +164,7 @@ festivalRoutes.get('/:id', async (c) => {
 
     return c.json({
       success: true,
-      data: {
-        ...festival,
-        tags: safeParseJson(festival.tags, []),
-        social_links: safeParseJson(festival.socialLinks, {}),
-      },
+      data: formatFestival(festival),
     });
   } catch (error) {
     console.error('[festivals] Get error:', error);
@@ -250,11 +240,7 @@ festivalRoutes.put(
 
       return c.json({
         success: true,
-        data: {
-          ...updated,
-          tags: safeParseJson(updated!.tags, []),
-          social_links: safeParseJson(updated!.socialLinks, {}),
-        },
+        data: formatFestival(updated!),
       });
     } catch (error) {
       console.error('[festivals] Update error:', error);
@@ -439,6 +425,38 @@ function safeParseJson(value: string | null | undefined, fallback: unknown): unk
   } catch {
     return fallback;
   }
+}
+
+function formatFestival(f: typeof festivals.$inferSelect) {
+  return {
+    id: f.id,
+    slug: f.slug,
+    name: f.name,
+    description: f.description,
+    logo_url: f.logoUrl,
+    banner_url: f.bannerUrl,
+    theme_colors: {
+      primary: f.themePrimaryColor ?? '#6366f1',
+      secondary: f.themeSecondaryColor ?? '#ec4899',
+      accent: '#f59e0b',
+      background: '#ffffff',
+      text: '#111827',
+    },
+    location_name: f.city,
+    location_address: f.address,
+    location_lat: f.latitude,
+    location_lng: f.longitude,
+    city: f.city,
+    country: f.country,
+    website: f.website,
+    contact_email: f.contactEmail,
+    social_links: safeParseJson(f.socialLinks, {}),
+    tags: safeParseJson(f.tags, []),
+    status: f.status,
+    created_by: f.createdBy,
+    created_at: f.createdAt,
+    updated_at: f.updatedAt,
+  };
 }
 
 export { festivalRoutes };

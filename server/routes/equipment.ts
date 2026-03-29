@@ -9,6 +9,7 @@ import { db } from '../db/index.js';
 import { equipmentItems, equipmentAssignments } from '../db/schema.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole } from '../middleware/festival-auth.js';
+import { formatResponse } from '../lib/format.js';
 
 const equipmentRoutes = new Hono();
 
@@ -25,7 +26,7 @@ equipmentRoutes.get('/festival/:festivalId/items', async (c) => {
       .where(eq(equipmentItems.festivalId, festivalId))
       .all();
 
-    return c.json({ success: true, data: items });
+    return c.json({ success: true, data: items.map((item) => formatResponse(item)) });
   } catch (error) {
     console.error('[equipment] List items error:', error);
     return c.json({ success: false, error: 'Failed to list equipment items' }, 500);
@@ -74,7 +75,7 @@ equipmentRoutes.post(
         .where(eq(equipmentItems.id, id))
         .get();
 
-      return c.json({ success: true, data: item }, 201);
+      return c.json({ success: true, data: item ? formatResponse(item) : null }, 201);
     } catch (error) {
       console.error('[equipment] Create item error:', error);
       return c.json({ success: false, error: 'Failed to create equipment item' }, 500);
@@ -117,7 +118,7 @@ equipmentRoutes.put('/items/:id', authMiddleware, async (c) => {
 
     const updated = db.select().from(equipmentItems).where(eq(equipmentItems.id, id)).get();
 
-    return c.json({ success: true, data: updated });
+    return c.json({ success: true, data: updated ? formatResponse(updated) : null });
   } catch (error) {
     console.error('[equipment] Update item error:', error);
     return c.json({ success: false, error: 'Failed to update equipment item' }, 500);
@@ -158,7 +159,7 @@ equipmentRoutes.get('/edition/:editionId/assignments', async (c) => {
       .where(eq(equipmentAssignments.editionId, editionId))
       .all();
 
-    return c.json({ success: true, data: assignments });
+    return c.json({ success: true, data: assignments.map((a) => formatResponse(a)) });
   } catch (error) {
     console.error('[equipment] List assignments error:', error);
     return c.json({ success: false, error: 'Failed to list equipment assignments' }, 500);
@@ -205,7 +206,7 @@ equipmentRoutes.post('/edition/:editionId/assignments', authMiddleware, async (c
       .where(eq(equipmentAssignments.id, id))
       .get();
 
-    return c.json({ success: true, data: assignment }, 201);
+    return c.json({ success: true, data: assignment ? formatResponse(assignment) : null }, 201);
   } catch (error) {
     console.error('[equipment] Create assignment error:', error);
     return c.json({ success: false, error: 'Failed to create equipment assignment' }, 500);
@@ -255,7 +256,7 @@ equipmentRoutes.put('/assignments/:id', authMiddleware, async (c) => {
       .where(eq(equipmentAssignments.id, id))
       .get();
 
-    return c.json({ success: true, data: updated });
+    return c.json({ success: true, data: updated ? formatResponse(updated) : null });
   } catch (error) {
     console.error('[equipment] Update assignment error:', error);
     return c.json({ success: false, error: 'Failed to update equipment assignment' }, 500);

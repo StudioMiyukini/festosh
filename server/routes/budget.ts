@@ -9,6 +9,7 @@ import { db } from '../db/index.js';
 import { budgetCategories, budgetEntries, editions } from '../db/schema.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole } from '../middleware/festival-auth.js';
+import { formatResponse } from '../lib/format.js';
 
 const budgetRoutes = new Hono();
 
@@ -28,7 +29,7 @@ budgetRoutes.get('/festival/:festivalId/categories', authMiddleware, async (c) =
     // Sort by sort_order
     categories.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-    return c.json({ success: true, data: categories });
+    return c.json({ success: true, data: categories.map((cat) => formatResponse(cat)) });
   } catch (error) {
     console.error('[budget] List categories error:', error);
     return c.json({ success: false, error: 'Failed to list budget categories' }, 500);
@@ -76,7 +77,7 @@ budgetRoutes.post(
         .where(eq(budgetCategories.id, id))
         .get();
 
-      return c.json({ success: true, data: category }, 201);
+      return c.json({ success: true, data: category ? formatResponse(category) : null }, 201);
     } catch (error) {
       console.error('[budget] Create category error:', error);
       return c.json({ success: false, error: 'Failed to create budget category' }, 500);
@@ -97,7 +98,7 @@ budgetRoutes.get('/edition/:editionId/entries', authMiddleware, async (c) => {
       .where(eq(budgetEntries.editionId, editionId))
       .all();
 
-    return c.json({ success: true, data: entries });
+    return c.json({ success: true, data: entries.map((e) => formatResponse(e)) });
   } catch (error) {
     console.error('[budget] List entries error:', error);
     return c.json({ success: false, error: 'Failed to list budget entries' }, 500);
@@ -145,7 +146,7 @@ budgetRoutes.post('/edition/:editionId/entries', authMiddleware, async (c) => {
       .where(eq(budgetEntries.id, id))
       .get();
 
-    return c.json({ success: true, data: entry }, 201);
+    return c.json({ success: true, data: entry ? formatResponse(entry) : null }, 201);
   } catch (error) {
     console.error('[budget] Create entry error:', error);
     return c.json({ success: false, error: 'Failed to create budget entry' }, 500);
@@ -189,7 +190,7 @@ budgetRoutes.put('/entries/:id', authMiddleware, async (c) => {
 
     const updated = db.select().from(budgetEntries).where(eq(budgetEntries.id, id)).get();
 
-    return c.json({ success: true, data: updated });
+    return c.json({ success: true, data: updated ? formatResponse(updated) : null });
   } catch (error) {
     console.error('[budget] Update entry error:', error);
     return c.json({ success: false, error: 'Failed to update budget entry' }, 500);

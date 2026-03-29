@@ -8,23 +8,12 @@ import crypto from 'crypto';
 import { db } from '../db/index.js';
 import { floorPlans } from '../db/schema.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { formatResponse } from '../lib/format.js';
 
 const floorPlanRoutes = new Hono();
 
-function safeParseJson(value: string | null | undefined, fallback: unknown): unknown {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
 function formatFloorPlan(fp: typeof floorPlans.$inferSelect) {
-  return {
-    ...fp,
-    canvas_data: safeParseJson(fp.canvasData, { elements: [] }),
-  };
+  return formatResponse(fp, ['canvasData']);
 }
 
 // ---------------------------------------------------------------------------

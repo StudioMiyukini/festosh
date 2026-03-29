@@ -9,8 +9,17 @@ import { db } from '../db/index.js';
 import { cmsPages, cmsBlocks, festivalMembers } from '../db/schema.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole, hasMinRole } from '../middleware/festival-auth.js';
+import { formatResponse } from '../lib/format.js';
 
 const cmsRoutes = new Hono();
+
+function formatPage(p: typeof cmsPages.$inferSelect) {
+  return formatResponse(p);
+}
+
+function formatBlock(b: typeof cmsBlocks.$inferSelect) {
+  return formatResponse(b, ['content', 'settings']);
+}
 
 function safeParseJson(value: string | null | undefined, fallback: unknown): unknown {
   if (!value) return fallback;
@@ -59,7 +68,7 @@ cmsRoutes.get('/festival/:festivalId/pages', optionalAuth, async (c) => {
         .all();
     }
 
-    return c.json({ success: true, data: rows });
+    return c.json({ success: true, data: rows.map(formatPage) });
   } catch (error) {
     console.error('[cms] List pages error:', error);
     return c.json({ success: false, error: 'Failed to list pages' }, 500);
@@ -106,7 +115,7 @@ cmsRoutes.post(
 
       const page = db.select().from(cmsPages).where(eq(cmsPages.id, id)).get();
 
-      return c.json({ success: true, data: page }, 201);
+      return c.json({ success: true, data: formatPage(page!) }, 201);
     } catch (error) {
       console.error('[cms] Create page error:', error);
       return c.json({ success: false, error: 'Failed to create page' }, 500);
@@ -135,16 +144,12 @@ cmsRoutes.get('/pages/:id', optionalAuth, async (c) => {
     // Sort blocks by sort_order
     blocks.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-    const formattedBlocks = blocks.map((block) => ({
-      ...block,
-      content: safeParseJson(block.content, {}),
-      settings: safeParseJson(block.settings, {}),
-    }));
+    const formattedBlocks = blocks.map(formatBlock);
 
     return c.json({
       success: true,
       data: {
-        ...page,
+        ...formatPage(page),
         blocks: formattedBlocks,
       },
     });
@@ -181,7 +186,7 @@ cmsRoutes.put('/pages/:id', authMiddleware, async (c) => {
 
     const updated = db.select().from(cmsPages).where(eq(cmsPages.id, pageId)).get();
 
-    return c.json({ success: true, data: updated });
+    return c.json({ success: true, data: formatPage(updated!) });
   } catch (error) {
     console.error('[cms] Update page error:', error);
     return c.json({ success: false, error: 'Failed to update page' }, 500);
@@ -248,11 +253,7 @@ cmsRoutes.post('/pages/:pageId/blocks', authMiddleware, async (c) => {
 
     return c.json({
       success: true,
-      data: {
-        ...block,
-        content: safeParseJson(block!.content, {}),
-        settings: safeParseJson(block!.settings, {}),
-      },
+      data: formatBlock(block!),
     }, 201);
   } catch (error) {
     console.error('[cms] Add block error:', error);
@@ -288,11 +289,7 @@ cmsRoutes.put('/blocks/:id', authMiddleware, async (c) => {
 
     return c.json({
       success: true,
-      data: {
-        ...updated,
-        content: safeParseJson(updated!.content, {}),
-        settings: safeParseJson(updated!.settings, {}),
-      },
+      data: formatBlock(updated!),
     });
   } catch (error) {
     console.error('[cms] Update block error:', error);
@@ -351,11 +348,7 @@ cmsRoutes.put('/pages/:pageId/blocks/reorder', authMiddleware, async (c) => {
 
     blocks.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-    const formattedBlocks = blocks.map((block) => ({
-      ...block,
-      content: safeParseJson(block.content, {}),
-      settings: safeParseJson(block.settings, {}),
-    }));
+    const formattedBlocks = blocks.map(formatBlock);
 
     return c.json({ success: true, data: formattedBlocks });
   } catch (error) {

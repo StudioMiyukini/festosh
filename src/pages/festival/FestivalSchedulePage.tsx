@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Clock, MapPin, Filter, Loader2, CalendarDays, Users } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
-import { api, ApiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/date';
-import { format, parseISO } from 'date-fns';
+import { api } from '@/lib/api-client';
+import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import type { Event } from '@/types/programming';
 import type { Venue } from '@/types/programming';
+
+/** Convert unix timestamp to Date */
+function tsToDate(ts: number | string): Date {
+  const n = typeof ts === 'string' ? Number(ts) : ts;
+  return new Date(n * 1000);
+}
 
 /** Group events by date string (YYYY-MM-DD). */
 function groupByDate(events: Event[]): Record<string, Event[]> {
   const groups: Record<string, Event[]> = {};
   for (const event of events) {
-    const dateKey = event.start_time.slice(0, 10); // YYYY-MM-DD
+    if (!event.start_time) continue;
+    const dateKey = format(tsToDate(event.start_time), 'yyyy-MM-dd');
     if (!groups[dateKey]) {
       groups[dateKey] = [];
     }
@@ -21,20 +27,21 @@ function groupByDate(events: Event[]): Record<string, Event[]> {
   // Sort events within each group by start_time
   for (const key of Object.keys(groups)) {
     groups[key].sort(
-      (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+      (a, b) => Number(a.start_time) - Number(b.start_time)
     );
   }
   return groups;
 }
 
-/** Format a time string from ISO datetime. */
-function formatTime(isoDate: string): string {
-  return format(parseISO(isoDate), 'HH:mm', { locale: fr });
+/** Format a time from unix timestamp. */
+function formatTime(ts: number | string): string {
+  return format(tsToDate(ts), 'HH:mm', { locale: fr });
 }
 
 /** Format a date key as a human-readable day label. */
 function formatDayLabel(dateKey: string): string {
-  return format(parseISO(dateKey), 'EEEE d MMMM', { locale: fr });
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return format(new Date(y, m - 1, d), 'EEEE d MMMM', { locale: fr });
 }
 
 export function FestivalSchedulePage() {
@@ -60,12 +67,12 @@ export function FestivalSchedulePage() {
 
     setLoading(true);
 
-    const editionParam = activeEdition?.id
-      ? ApiClient.queryString({ edition_id: activeEdition.id })
-      : '';
+    const editionId = activeEdition?.id;
 
     Promise.all([
-      api.get<Event[]>(`/events/festival/${festival.id}${editionParam}`),
+      editionId
+        ? api.get<Event[]>(`/events/edition/${editionId}`)
+        : Promise.resolve({ success: true, data: [] as Event[] }),
       api.get<Venue[]>(`/venues/festival/${festival.id}`),
     ])
       .then(([eventsRes, venuesRes]) => {
@@ -231,7 +238,7 @@ export function FestivalSchedulePage() {
                           <div className="mt-2 flex items-center gap-2">
                             <Users className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">
-                              {event.speakers.map((s) => s.name).join(', ')}
+                              {(event.speakers as unknown as string[]).join(', ')}
                             </span>
                           </div>
                         )}
@@ -239,7 +246,7 @@ export function FestivalSchedulePage() {
                       <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:text-right">
                         <span className="inline-flex items-center gap-1 sm:justify-end">
                           <Clock className="h-3 w-3" />
-                          {formatTime(event.start_time)} &mdash; {formatTime(event.end_time)}
+                          {event.start_time && formatTime(event.start_time)} &mdash; {event.end_time && formatTime(event.end_time)}
                         </span>
                         {venue && (
                           <span className="inline-flex items-center gap-1 sm:justify-end">

@@ -22,9 +22,22 @@ function safeParseJson(value: string | null | undefined, fallback: unknown): unk
 
 function formatEvent(e: typeof events.$inferSelect) {
   return {
-    ...e,
+    id: e.id,
+    edition_id: e.editionId,
+    venue_id: e.venueId,
+    title: e.title,
+    description: e.description,
+    category: e.category,
+    start_time: e.startTime,
+    end_time: e.endTime,
+    is_public: e.isPublic,
+    image_url: e.imageUrl,
+    max_participants: e.maxParticipants,
     speakers: safeParseJson(e.speakerNames, []),
     tags: safeParseJson(e.tags, []),
+    created_by: e.createdBy,
+    created_at: e.createdAt,
+    updated_at: e.updatedAt,
   };
 }
 

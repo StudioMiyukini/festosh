@@ -23,8 +23,25 @@ function safeParseJson(value: string | null | undefined, fallback: unknown): unk
 
 function formatEdition(e: typeof editions.$inferSelect) {
   return {
-    ...e,
+    id: e.id,
+    festival_id: e.festivalId,
+    name: e.name,
+    slug: e.slug,
+    description: e.description,
+    start_date: e.startDate,
+    end_date: e.endDate,
+    status: e.status,
+    exhibitor_registration_start: e.exhibitorRegistrationStart,
+    exhibitor_registration_end: e.exhibitorRegistrationEnd,
+    volunteer_registration_start: e.volunteerRegistrationStart,
+    volunteer_registration_end: e.volunteerRegistrationEnd,
+    expected_visitors: e.expectedVisitors,
+    max_exhibitors: e.maxExhibitors,
+    max_volunteers: e.maxVolunteers,
     visitor_hours: safeParseJson(e.visitorHours, {}),
+    is_active: e.isActive,
+    created_at: e.createdAt,
+    updated_at: e.updatedAt,
   };
 }
 

@@ -176,9 +176,31 @@ directoryRoutes.get('/by-slug/:slug', async (c) => {
     return c.json({
       success: true,
       data: {
-        ...festival,
-        tags: safeParseJson(festival.tags, []),
+        id: festival.id,
+        slug: festival.slug,
+        name: festival.name,
+        description: festival.description,
+        logo_url: festival.logoUrl,
+        banner_url: festival.bannerUrl,
+        theme_colors: {
+          primary: festival.themePrimaryColor ?? '#6366f1',
+          secondary: festival.themeSecondaryColor ?? '#ec4899',
+          accent: '#f59e0b',
+          background: '#ffffff',
+          text: '#111827',
+        },
+        location_name: festival.city,
+        location_address: festival.address,
+        location_lat: festival.latitude,
+        location_lng: festival.longitude,
+        website: festival.website,
+        contact_email: festival.contactEmail,
         social_links: safeParseJson(festival.socialLinks, {}),
+        tags: safeParseJson(festival.tags, []),
+        status: festival.status,
+        created_by: festival.createdBy,
+        created_at: festival.createdAt,
+        updated_at: festival.updatedAt,
       },
     });
   } catch (error) {

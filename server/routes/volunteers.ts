@@ -15,8 +15,17 @@ import {
 } from '../db/schema.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole } from '../middleware/festival-auth.js';
+import { formatResponse } from '../lib/format.js';
 
 const volunteerRoutes = new Hono();
+
+function formatRole(r: typeof volunteerRoles.$inferSelect) {
+  return formatResponse(r);
+}
+
+function formatShift(s: typeof shifts.$inferSelect) {
+  return formatResponse(s);
+}
 
 // ---------------------------------------------------------------------------
 // GET /festival/:festivalId/roles — list volunteer roles
@@ -31,7 +40,7 @@ volunteerRoutes.get('/festival/:festivalId/roles', async (c) => {
       .where(eq(volunteerRoles.festivalId, festivalId))
       .all();
 
-    return c.json({ success: true, data: roles });
+    return c.json({ success: true, data: roles.map(formatRole) });
   } catch (error) {
     console.error('[volunteers] List roles error:', error);
     return c.json({ success: false, error: 'Failed to list volunteer roles' }, 500);
@@ -72,7 +81,7 @@ volunteerRoutes.post(
 
       const role = db.select().from(volunteerRoles).where(eq(volunteerRoles.id, id)).get();
 
-      return c.json({ success: true, data: role }, 201);
+      return c.json({ success: true, data: formatRole(role!) }, 201);
     } catch (error) {
       console.error('[volunteers] Create role error:', error);
       return c.json({ success: false, error: 'Failed to create volunteer role' }, 500);
@@ -102,7 +111,7 @@ volunteerRoutes.get('/edition/:editionId/shifts', async (c) => {
         .all();
 
       return {
-        ...shift,
+        ...formatShift(shift),
         assigned_count: assignments.length,
         assignments: assignments.map((a) => ({
           id: a.id,
@@ -155,7 +164,7 @@ volunteerRoutes.post('/edition/:editionId/shifts', authMiddleware, async (c) => 
 
     const shift = db.select().from(shifts).where(eq(shifts.id, id)).get();
 
-    return c.json({ success: true, data: shift }, 201);
+    return c.json({ success: true, data: formatShift(shift!) }, 201);
   } catch (error) {
     console.error('[volunteers] Create shift error:', error);
     return c.json({ success: false, error: 'Failed to create shift' }, 500);
@@ -199,7 +208,7 @@ volunteerRoutes.put('/shifts/:id', authMiddleware, async (c) => {
 
     const updated = db.select().from(shifts).where(eq(shifts.id, id)).get();
 
-    return c.json({ success: true, data: updated });
+    return c.json({ success: true, data: formatShift(updated!) });
   } catch (error) {
     console.error('[volunteers] Update shift error:', error);
     return c.json({ success: false, error: 'Failed to update shift' }, 500);
@@ -363,7 +372,7 @@ volunteerRoutes.get('/my-shifts/:editionId', authMiddleware, async (c) => {
 
       if (assignment) {
         myShifts.push({
-          ...shift,
+          ...formatShift(shift),
           assignment_id: assignment.id,
           assignment_notes: assignment.notes,
           assigned_at: assignment.createdAt,

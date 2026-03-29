@@ -23,8 +23,17 @@ function safeParseJson(value: string | null | undefined, fallback: unknown): unk
 
 function formatVenue(v: typeof venues.$inferSelect) {
   return {
-    ...v,
+    id: v.id,
+    festival_id: v.festivalId,
+    name: v.name,
+    description: v.description,
+    venue_type: v.venueType,
+    capacity: v.capacity,
+    address: v.address,
     plan_position: safeParseJson(v.planPosition, {}),
+    is_active: v.isActive,
+    created_at: v.createdAt,
+    updated_at: v.updatedAt,
   };
 }
 

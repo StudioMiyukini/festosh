@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, MapPin, Store, ArrowRight, Clock, Loader2 } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
-import { api, ApiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/date';
+import { api } from '@/lib/api-client';
+import { formatDate, formatDateTime } from '@/lib/date';
 import type { Event } from '@/types/programming';
 import type { ExhibitorProfile } from '@/types/exhibitor';
 
@@ -20,11 +20,11 @@ export function FestivalHomePage() {
     if (!festival?.id) return;
 
     // Fetch upcoming events (up to 4)
-    const editionParam = activeEdition?.id
-      ? ApiClient.queryString({ edition_id: activeEdition.id })
-      : '';
-    api
-      .get<Event[]>(`/events/festival/${festival.id}${editionParam}`)
+    const editionId = activeEdition?.id;
+    const eventsPromise = editionId
+      ? api.get<Event[]>(`/events/edition/${editionId}`)
+      : Promise.resolve({ success: true, data: [] as Event[] });
+    eventsPromise
       .then((res) => {
         if (res.success && res.data) {
           setEvents(res.data.slice(0, 4));
@@ -61,10 +61,12 @@ export function FestivalHomePage() {
             </h1>
             {activeEdition && (
               <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-muted-foreground">
+                {activeEdition.start_date && activeEdition.end_date && (
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays className="h-4 w-4" />
                   {formatDate(activeEdition.start_date)} &mdash; {formatDate(activeEdition.end_date)}
                 </span>
+                )}
                 {festival?.location_name && (
                   <span className="inline-flex items-center gap-1.5">
                     <MapPin className="h-4 w-4" />
@@ -143,10 +145,12 @@ export function FestivalHomePage() {
                     {event.title}
                   </h3>
                   <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                    {event.start_time && (
                     <span className="inline-flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {formatDate(event.start_time)}
+                      {formatDateTime(new Date(Number(event.start_time) * 1000))}
                     </span>
+                    )}
                     {event.venue_id && (
                       <span className="inline-flex items-center gap-1">
                         <MapPin className="h-3 w-3" />

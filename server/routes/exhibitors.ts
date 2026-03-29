@@ -15,6 +15,7 @@ import {
 } from '../db/schema.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole, hasMinRole } from '../middleware/festival-auth.js';
+import { formatResponse } from '../lib/format.js';
 
 const exhibitorRoutes = new Hono();
 
@@ -28,10 +29,15 @@ function safeParseJson(value: string | null | undefined, fallback: unknown): unk
 }
 
 function formatExhibitorProfile(p: typeof exhibitorProfiles.$inferSelect) {
-  return {
-    ...p,
-    social_links: safeParseJson(p.socialLinks, {}),
-  };
+  return formatResponse(p, ['socialLinks']);
+}
+
+function formatBoothLocation(loc: typeof boothLocations.$inferSelect) {
+  return formatResponse(loc, ['planPosition', 'equipmentIncluded']);
+}
+
+function formatApplication(app: typeof boothApplications.$inferSelect) {
+  return formatResponse(app, ['documents']);
 }
 
 // ---------------------------------------------------------------------------
@@ -189,11 +195,7 @@ exhibitorRoutes.get('/edition/:editionId/locations', async (c) => {
       .where(eq(boothLocations.editionId, editionId))
       .all();
 
-    const data = locations.map((loc) => ({
-      ...loc,
-      plan_position: safeParseJson(loc.planPosition, {}),
-      equipment_included: safeParseJson(loc.equipmentIncluded, []),
-    }));
+    const data = locations.map((loc) => formatBoothLocation(loc));
 
     return c.json({ success: true, data });
   } catch (error) {
@@ -242,11 +244,7 @@ exhibitorRoutes.post('/edition/:editionId/locations', authMiddleware, async (c) 
 
     return c.json({
       success: true,
-      data: {
-        ...location,
-        plan_position: safeParseJson(location!.planPosition, {}),
-        equipment_included: safeParseJson(location!.equipmentIncluded, []),
-      },
+      data: formatBoothLocation(location!),
     }, 201);
   } catch (error) {
     console.error('[exhibitors] Create location error:', error);
@@ -306,11 +304,7 @@ exhibitorRoutes.put('/locations/:id', authMiddleware, async (c) => {
 
     return c.json({
       success: true,
-      data: {
-        ...updated,
-        plan_position: safeParseJson(updated!.planPosition, {}),
-        equipment_included: safeParseJson(updated!.equipmentIncluded, []),
-      },
+      data: formatBoothLocation(updated!),
     });
   } catch (error) {
     console.error('[exhibitors] Update location error:', error);
@@ -352,10 +346,7 @@ exhibitorRoutes.get('/edition/:editionId/applications', authMiddleware, async (c
       .where(eq(boothApplications.editionId, editionId))
       .all();
 
-    const data = applications.map((app) => ({
-      ...app,
-      documents: safeParseJson(app.documents, {}),
-    }));
+    const data = applications.map((app) => formatApplication(app));
 
     return c.json({ success: true, data });
   } catch (error) {
@@ -430,10 +421,7 @@ exhibitorRoutes.post('/edition/:editionId/apply', authMiddleware, async (c) => {
 
     return c.json({
       success: true,
-      data: {
-        ...application,
-        documents: safeParseJson(application!.documents, {}),
-      },
+      data: formatApplication(application!),
     }, 201);
   } catch (error) {
     console.error('[exhibitors] Apply error:', error);
@@ -479,10 +467,7 @@ exhibitorRoutes.put('/applications/:id/status', authMiddleware, async (c) => {
 
     return c.json({
       success: true,
-      data: {
-        ...updated,
-        documents: safeParseJson(updated.documents, {}),
-      },
+      data: formatApplication(updated),
     });
   } catch (error) {
     console.error('[exhibitors] Update status error:', error);
@@ -537,10 +522,7 @@ exhibitorRoutes.put('/applications/:id/assign-booth', authMiddleware, async (c) 
 
     return c.json({
       success: true,
-      data: {
-        ...updated,
-        documents: safeParseJson(updated!.documents, {}),
-      },
+      data: formatApplication(updated!),
     });
   } catch (error) {
     console.error('[exhibitors] Assign booth error:', error);
