@@ -1,120 +1,147 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Store,
   Users,
-  DollarSign,
+  Store,
   Calendar,
-  Activity,
+  Clock,
+  Wallet,
+  FileText,
+  Download,
   Loader2,
   Plus,
   ArrowRight,
   AlertCircle,
+  DollarSign,
+  Activity,
 } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
 import { api } from '@/lib/api-client';
-import type { Event } from '@/types/programming';
-import type { BoothApplication } from '@/types/exhibitor';
-import type { Shift } from '@/types/volunteer';
-import type { BudgetEntry } from '@/types/budget';
 
-interface BudgetSummary {
-  total_income: number;
-  total_expenses: number;
-  balance: number;
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface DashboardStats {
+  members: {
+    total: number;
+    by_role: Record<string, number>;
+  };
+  applications: {
+    total: number;
+    submitted: number;
+    approved: number;
+    rejected: number;
+  };
+  events: {
+    total: number;
+  };
+  volunteers: {
+    shifts_total: number;
+    shifts_filled: number;
+    volunteers_count: number;
+  };
+  budget: {
+    income_cents: number;
+    expense_cents: number;
+    balance_cents: number;
+  };
+  cms_pages: {
+    total: number;
+    published: number;
+    draft: number;
+  };
 }
+
+// ---------------------------------------------------------------------------
+// CSV download helper
+// ---------------------------------------------------------------------------
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+const downloadCsv = async (url: string, filename: string) => {
+  const token = localStorage.getItem('festosh-token');
+  const res = await fetch(`${API_BASE}${url}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+// ---------------------------------------------------------------------------
+// Role label mapping
+// ---------------------------------------------------------------------------
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: 'Proprietaire',
+  admin: 'Administrateur',
+  editor: 'Editeur',
+  moderator: 'Moderateur',
+  volunteer: 'Benevole',
+  exhibitor: 'Exposant',
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  owner: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  admin: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  editor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  moderator: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  volunteer: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  exhibitor: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  submitted: 'Soumises',
+  approved: 'Approuvees',
+  rejected: 'Refusees',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  submitted: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  approved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+};
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function AdminOverviewPage() {
   const { festival, activeEdition } = useTenantStore();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
 
-  const [eventsCount, setEventsCount] = useState(0);
-  const [applicationsCount, setApplicationsCount] = useState(0);
-  const [shiftsCount, setShiftsCount] = useState(0);
-  const [budgetSummary, setBudgetSummary] = useState<BudgetSummary | null>(null);
+  const formatCurrency = (cents: number) =>
+    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 
-  const [recentEvents, setRecentEvents] = useState<Event[]>([]);
-  const [recentApplications, setRecentApplications] = useState<BoothApplication[]>([]);
-  const [recentShifts, setRecentShifts] = useState<Shift[]>([]);
-  const [recentEntries, setRecentEntries] = useState<BudgetEntry[]>([]);
-
-  const fetchData = useCallback(async () => {
+  const fetchStats = useCallback(async () => {
     if (!festival) return;
     setLoading(true);
     setError(null);
 
     try {
-      const editionQuery = activeEdition ? `?edition_id=${activeEdition.id}` : '';
-
-      const [eventsRes, applicationsRes, shiftsRes, budgetRes, entriesRes] = await Promise.all([
-        api.get<Event[]>(`/events/festival/${festival.id}${editionQuery}`),
-        api.get<BoothApplication[]>(`/exhibitors/festival/${festival.id}/applications`),
-        api.get<Shift[]>(`/volunteers/festival/${festival.id}/shifts`),
-        api.get<BudgetSummary>(`/budget/festival/${festival.id}/summary`),
-        api.get<BudgetEntry[]>(`/budget/festival/${festival.id}/entries`),
-      ]);
-
-      if (eventsRes.success && eventsRes.data) {
-        setEventsCount(eventsRes.data.length);
-        setRecentEvents(eventsRes.data.slice(0, 3));
-      }
-      if (applicationsRes.success && applicationsRes.data) {
-        setApplicationsCount(applicationsRes.data.length);
-        setRecentApplications(applicationsRes.data.slice(0, 3));
-      }
-      if (shiftsRes.success && shiftsRes.data) {
-        setShiftsCount(shiftsRes.data.length);
-        setRecentShifts(shiftsRes.data.slice(0, 3));
-      }
-      if (budgetRes.success && budgetRes.data) {
-        setBudgetSummary(budgetRes.data);
-      }
-      if (entriesRes.success && entriesRes.data) {
-        setRecentEntries(entriesRes.data.slice(0, 3));
+      const res = await api.get<DashboardStats>(`/festivals/${festival.id}/stats`);
+      if (res.success && res.data) {
+        setStats(res.data);
+      } else {
+        setError(res.error || 'Impossible de charger les statistiques.');
       }
     } catch {
       setError('Impossible de charger les donnees du tableau de bord.');
     } finally {
       setLoading(false);
     }
-  }, [festival, activeEdition]);
+  }, [festival]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const formatCurrency = (cents: number) =>
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
-
-  const stats = [
-    {
-      label: 'Evenements',
-      value: String(eventsCount),
-      detail: activeEdition ? activeEdition.name : 'Toutes editions',
-      icon: Calendar,
-    },
-    {
-      label: 'Candidatures',
-      value: String(applicationsCount),
-      detail: 'Exposants',
-      icon: Store,
-    },
-    {
-      label: 'Creneaux benevoles',
-      value: String(shiftsCount),
-      detail: 'Postes ouverts',
-      icon: Users,
-    },
-    {
-      label: 'Solde budget',
-      value: budgetSummary ? formatCurrency(budgetSummary.balance) : '—',
-      detail: budgetSummary
-        ? `${formatCurrency(budgetSummary.total_income)} recettes`
-        : 'Chargement...',
-      icon: DollarSign,
-    },
-  ];
+    fetchStats();
+  }, [fetchStats]);
 
   if (loading) {
     return (
@@ -124,14 +151,14 @@ export function AdminOverviewPage() {
     );
   }
 
-  if (error) {
+  if (error || !stats) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <AlertCircle className="mb-3 h-8 w-8 text-destructive" />
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-destructive">{error || 'Aucune donnee disponible.'}</p>
         <button
           type="button"
-          onClick={fetchData}
+          onClick={fetchStats}
           className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           Reessayer
@@ -139,6 +166,54 @@ export function AdminOverviewPage() {
       </div>
     );
   }
+
+  const balancePositive = stats.budget.balance_cents >= 0;
+
+  const statCards = [
+    {
+      label: 'Membres',
+      value: String(stats.members.total),
+      detail: `${Object.keys(stats.members.by_role).length} roles`,
+      icon: Users,
+      color: 'text-blue-500',
+    },
+    {
+      label: 'Exposants',
+      value: String(stats.applications.approved),
+      detail: `${stats.applications.total} candidature${stats.applications.total !== 1 ? 's' : ''} au total`,
+      icon: Store,
+      color: 'text-orange-500',
+    },
+    {
+      label: 'Evenements',
+      value: String(stats.events.total),
+      detail: activeEdition ? activeEdition.name : 'Toutes editions',
+      icon: Calendar,
+      color: 'text-indigo-500',
+    },
+    {
+      label: 'Benevoles',
+      value: `${stats.volunteers.shifts_filled} / ${stats.volunteers.shifts_total}`,
+      detail: `${stats.volunteers.volunteers_count} benevole${stats.volunteers.volunteers_count !== 1 ? 's' : ''} inscrit${stats.volunteers.volunteers_count !== 1 ? 's' : ''}`,
+      icon: Clock,
+      color: 'text-green-500',
+    },
+    {
+      label: 'Budget',
+      value: formatCurrency(stats.budget.balance_cents),
+      detail: `${formatCurrency(stats.budget.income_cents)} recettes / ${formatCurrency(stats.budget.expense_cents)} depenses`,
+      icon: Wallet,
+      color: balancePositive ? 'text-green-500' : 'text-red-500',
+      valueColor: balancePositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
+    },
+    {
+      label: 'Pages CMS',
+      value: String(stats.cms_pages.published),
+      detail: `${stats.cms_pages.total} page${stats.cms_pages.total !== 1 ? 's' : ''} au total (${stats.cms_pages.draft} brouillon${stats.cms_pages.draft !== 1 ? 's' : ''})`,
+      icon: FileText,
+      color: 'text-purple-500',
+    },
+  ];
 
   return (
     <div>
@@ -152,8 +227,8 @@ export function AdminOverviewPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => {
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
             <div
@@ -162,21 +237,150 @@ export function AdminOverviewPage() {
             >
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-                <Icon className="h-4 w-4 text-muted-foreground" />
+                <Icon className={`h-5 w-5 ${stat.color}`} />
               </div>
-              <p className="mt-2 text-2xl font-bold text-foreground">{stat.value}</p>
+              <p className={`mt-2 text-2xl font-bold ${stat.valueColor ?? 'text-foreground'}`}>
+                {stat.value}
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">{stat.detail}</p>
             </div>
           );
         })}
       </div>
 
+      {/* Members by role + Applications by status */}
+      <div className="mb-8 grid gap-4 sm:grid-cols-2">
+        {/* Members by role */}
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-foreground">
+            <Users className="h-4 w-4 text-blue-500" />
+            Repartition des membres
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(stats.members.by_role).map(([role, count]) => (
+              <span
+                key={role}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${ROLE_COLORS[role] ?? 'bg-muted text-muted-foreground'}`}
+              >
+                {ROLE_LABELS[role] ?? role}
+                <span className="font-bold">{count}</span>
+              </span>
+            ))}
+            {Object.keys(stats.members.by_role).length === 0 && (
+              <p className="text-sm text-muted-foreground">Aucun membre.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Applications by status */}
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-foreground">
+            <Store className="h-4 w-4 text-orange-500" />
+            Candidatures exposants
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {(['submitted', 'approved', 'rejected'] as const).map((status) => {
+              const count = stats.applications[status];
+              if (count === 0) return null;
+              return (
+                <span
+                  key={status}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${STATUS_COLORS[status]}`}
+                >
+                  {STATUS_LABELS[status]}
+                  <span className="font-bold">{count}</span>
+                </span>
+              );
+            })}
+            {stats.applications.total === 0 && (
+              <p className="text-sm text-muted-foreground">Aucune candidature.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Export buttons */}
+      <div className="mb-8">
+        <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-foreground">
+          <Download className="h-4 w-4" />
+          Exports CSV
+        </h2>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              downloadCsv(
+                `/exports/festival/${festival!.id}/members`,
+                'membres.csv',
+              )
+            }
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            <Users className="h-4 w-4" />
+            Membres
+            <Download className="h-3 w-3 text-muted-foreground" />
+          </button>
+
+          {activeEdition && (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  downloadCsv(
+                    `/exports/edition/${activeEdition.id}/exhibitors`,
+                    'exposants.csv',
+                  )
+                }
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <Store className="h-4 w-4" />
+                Exposants
+                <Download className="h-3 w-3 text-muted-foreground" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  downloadCsv(
+                    `/exports/edition/${activeEdition.id}/volunteers`,
+                    'benevoles.csv',
+                  )
+                }
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <Clock className="h-4 w-4" />
+                Benevoles
+                <Download className="h-3 w-3 text-muted-foreground" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  downloadCsv(
+                    `/exports/edition/${activeEdition.id}/budget`,
+                    'budget.csv',
+                  )
+                }
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <DollarSign className="h-4 w-4" />
+                Budget
+                <Download className="h-3 w-3 text-muted-foreground" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="mb-8">
-        <h2 className="mb-4 text-base font-semibold text-foreground">Actions rapides</h2>
+        <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-foreground">
+          <Activity className="h-4 w-4" />
+          Actions rapides
+        </h2>
         <div className="flex flex-wrap gap-3">
           <a
-            href="/admin/programming"
+            href={`/f/${festival?.slug}/admin/programming`}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <Plus className="h-4 w-4" />
@@ -184,7 +388,7 @@ export function AdminOverviewPage() {
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
           </a>
           <a
-            href="/admin/exhibitors"
+            href={`/f/${festival?.slug}/admin/exhibitors`}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <Store className="h-4 w-4" />
@@ -192,7 +396,7 @@ export function AdminOverviewPage() {
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
           </a>
           <a
-            href="/admin/volunteers"
+            href={`/f/${festival?.slug}/admin/volunteers`}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <Users className="h-4 w-4" />
@@ -200,88 +404,21 @@ export function AdminOverviewPage() {
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
           </a>
           <a
-            href="/admin/budget"
+            href={`/f/${festival?.slug}/admin/budget`}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <DollarSign className="h-4 w-4" />
             Ajouter une depense
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
           </a>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-6 py-4">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
-            <Activity className="h-4 w-4" />
-            Activite recente
-          </h2>
-        </div>
-        <div className="divide-y divide-border">
-          {recentEvents.map((event) => (
-            <div key={`event-${event.id}`} className="flex items-start justify-between px-6 py-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-primary" />
-                <p className="text-sm text-foreground">
-                  Evenement : <span className="font-medium">{event.title}</span>
-                </p>
-              </div>
-              <span className="ml-4 flex-shrink-0 text-xs text-muted-foreground">
-                {new Date(event.start_time).toLocaleDateString('fr-FR')}
-              </span>
-            </div>
-          ))}
-          {recentApplications.map((app) => (
-            <div key={`app-${app.id}`} className="flex items-start justify-between px-6 py-4">
-              <div className="flex items-center gap-2">
-                <Store className="h-4 w-4 text-orange-500" />
-                <p className="text-sm text-foreground">
-                  Candidature exposant — statut :{' '}
-                  <span className="font-medium">{app.status}</span>
-                </p>
-              </div>
-              <span className="ml-4 flex-shrink-0 text-xs text-muted-foreground">
-                {new Date(app.created_at).toLocaleDateString('fr-FR')}
-              </span>
-            </div>
-          ))}
-          {recentShifts.map((shift) => (
-            <div key={`shift-${shift.id}`} className="flex items-start justify-between px-6 py-4">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-500" />
-                <p className="text-sm text-foreground">
-                  Creneau benevole : <span className="font-medium">{shift.title}</span>
-                </p>
-              </div>
-              <span className="ml-4 flex-shrink-0 text-xs text-muted-foreground">
-                {new Date(shift.start_time).toLocaleDateString('fr-FR')}
-              </span>
-            </div>
-          ))}
-          {recentEntries.map((entry) => (
-            <div key={`entry-${entry.id}`} className="flex items-start justify-between px-6 py-4">
-              <div className="flex items-center gap-2">
-                <DollarSign className={`h-4 w-4 ${entry.entry_type === 'income' ? 'text-green-500' : 'text-red-500'}`} />
-                <p className="text-sm text-foreground">
-                  {entry.entry_type === 'income' ? 'Recette' : 'Depense'} :{' '}
-                  <span className="font-medium">{entry.description}</span> —{' '}
-                  {formatCurrency(entry.amount_cents)}
-                </p>
-              </div>
-              <span className="ml-4 flex-shrink-0 text-xs text-muted-foreground">
-                {entry.date}
-              </span>
-            </div>
-          ))}
-          {recentEvents.length === 0 &&
-            recentApplications.length === 0 &&
-            recentShifts.length === 0 &&
-            recentEntries.length === 0 && (
-              <div className="px-6 py-8 text-center">
-                <p className="text-sm text-muted-foreground">Aucune activite recente.</p>
-              </div>
-            )}
+          <a
+            href={`/f/${festival?.slug}/admin/cms`}
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            <FileText className="h-4 w-4" />
+            Editer les pages CMS
+            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+          </a>
         </div>
       </div>
     </div>

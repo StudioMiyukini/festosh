@@ -9,16 +9,19 @@ import {
   X,
   Pencil,
   Trash2,
+  Users,
+  Euro,
 } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
 import { api } from '@/lib/api-client';
-import type { EquipmentItem, EquipmentAssignment } from '@/types/equipment';
+import type { EquipmentItem, EquipmentAssignment, EquipmentOwner } from '@/types/equipment';
 
 export function AdminEquipmentPage() {
-  const { festival } = useTenantStore();
+  const { festival, activeEdition } = useTenantStore();
 
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [assignments, setAssignments] = useState<EquipmentAssignment[]>([]);
+  const [owners, setOwners] = useState<EquipmentOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -31,16 +34,30 @@ export function AdminEquipmentPage() {
   const [formCategory, setFormCategory] = useState('');
   const [formUnit, setFormUnit] = useState('piece');
   const [formTotalQuantity, setFormTotalQuantity] = useState('1');
+  const [formOwnerName, setFormOwnerName] = useState('');
+  const [formValueEuros, setFormValueEuros] = useState('');
+  const [formAcquisitionType, setFormAcquisitionType] = useState('owned');
   const [submitting, setSubmitting] = useState(false);
+
+  // Owner management dialog
+  const [showOwnerDialog, setShowOwnerDialog] = useState(false);
+  const [ownerFormName, setOwnerFormName] = useState('');
+  const [ownerFormContact, setOwnerFormContact] = useState('');
+  const [ownerFormNotes, setOwnerFormNotes] = useState('');
+  const [ownerSubmitting, setOwnerSubmitting] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!festival) return;
     setLoading(true);
     setError(null);
 
-    const [itemsRes, assignmentsRes] = await Promise.all([
+    const editionId = activeEdition?.id;
+    const [itemsRes, assignmentsRes, ownersRes] = await Promise.all([
       api.get<EquipmentItem[]>(`/equipment/festival/${festival.id}/items`),
-      api.get<EquipmentAssignment[]>(`/equipment/festival/${festival.id}/assignments`),
+      editionId
+        ? api.get<EquipmentAssignment[]>(`/equipment/edition/${editionId}/assignments`)
+        : Promise.resolve({ success: true, data: [] as EquipmentAssignment[] }),
+      api.get<EquipmentOwner[]>(`/equipment/festival/${festival.id}/owners`),
     ]);
 
     if (itemsRes.success && itemsRes.data) {
@@ -51,8 +68,11 @@ export function AdminEquipmentPage() {
     if (assignmentsRes.success && assignmentsRes.data) {
       setAssignments(assignmentsRes.data);
     }
+    if (ownersRes.success && ownersRes.data) {
+      setOwners(ownersRes.data);
+    }
     setLoading(false);
-  }, [festival]);
+  }, [festival, activeEdition]);
 
   useEffect(() => {
     fetchData();
@@ -69,6 +89,9 @@ export function AdminEquipmentPage() {
     setFormCategory('');
     setFormUnit('piece');
     setFormTotalQuantity('1');
+    setFormOwnerName('');
+    setFormValueEuros('');
+    setFormAcquisitionType('owned');
     setEditingItem(null);
   };
 
@@ -84,6 +107,9 @@ export function AdminEquipmentPage() {
     setFormCategory(item.category || '');
     setFormUnit(item.unit);
     setFormTotalQuantity(String(item.total_quantity));
+    setFormOwnerName(item.owner_name || '');
+    setFormValueEuros(item.value_cents ? String(item.value_cents / 100) : '');
+    setFormAcquisitionType(item.acquisition_type || 'owned');
     setShowDialog(true);
   };
 
@@ -98,11 +124,14 @@ export function AdminEquipmentPage() {
       category: formCategory.trim() || null,
       unit: formUnit,
       total_quantity: Number(formTotalQuantity),
+      owner_name: formOwnerName.trim() || null,
+      value_cents: formValueEuros ? Math.round(Number(formValueEuros) * 100) : 0,
+      acquisition_type: formAcquisitionType,
     };
 
     if (editingItem) {
       const res = await api.put<EquipmentItem>(
-        `/equipment/festival/${festival.id}/items/${editingItem.id}`,
+        `/equipment/items/${editingItem.id}`,
         payload
       );
       if (res.success && res.data) {
@@ -132,7 +161,7 @@ export function AdminEquipmentPage() {
     if (!confirm(`Supprimer "${item.name}" de l'inventaire ?`)) return;
     setMessage(null);
 
-    const res = await api.delete(`/equipment/festival/${festival.id}/items/${item.id}`);
+    const res = await api.delete(`/equipment/items/${item.id}`);
     if (res.success) {
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       setMessage({ type: 'success', text: 'Materiel supprime.' });
@@ -144,6 +173,47 @@ export function AdminEquipmentPage() {
   const getItemName = (itemId: string) => {
     const item = items.find((i) => i.id === itemId);
     return item?.name || 'Inconnu';
+  };
+
+  const handleCreateOwner = async () => {
+    if (!festival || !ownerFormName.trim()) return;
+    setOwnerSubmitting(true);
+
+    const res = await api.post<EquipmentOwner>(`/equipment/festival/${festival.id}/owners`, {
+      name: ownerFormName.trim(),
+      contact_info: ownerFormContact.trim() || null,
+      notes: ownerFormNotes.trim() || null,
+    });
+
+    if (res.success && res.data) {
+      setOwners((prev) => [...prev, res.data!]);
+      setFormOwnerName(res.data.name);
+      setOwnerFormName('');
+      setOwnerFormContact('');
+      setOwnerFormNotes('');
+      setShowOwnerDialog(false);
+      setMessage({ type: 'success', text: 'Proprietaire ajoute.' });
+    } else {
+      setMessage({ type: 'error', text: res.error || 'Erreur lors de la creation du proprietaire.' });
+    }
+    setOwnerSubmitting(false);
+  };
+
+  const handleDeleteOwner = async (owner: EquipmentOwner) => {
+    if (!confirm(`Supprimer le proprietaire "${owner.name}" ?`)) return;
+    const res = await api.delete(`/equipment/owners/${owner.id}`);
+    if (res.success) {
+      setOwners((prev) => prev.filter((o) => o.id !== owner.id));
+      setMessage({ type: 'success', text: 'Proprietaire supprime.' });
+    } else {
+      setMessage({ type: 'error', text: res.error || 'Erreur lors de la suppression.' });
+    }
+  };
+
+  const ACQUISITION_LABELS: Record<string, string> = {
+    owned: 'Achat',
+    loaned: 'Pret',
+    rented: 'Location',
   };
 
   if (loading) {
@@ -179,14 +249,24 @@ export function AdminEquipmentPage() {
             Gerez l&apos;inventaire et les affectations de materiel.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateDialog}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Ajouter du materiel
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowOwnerDialog(true)}
+            className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            <Users className="h-4 w-4" />
+            Proprietaires
+          </button>
+          <button
+            type="button"
+            onClick={openCreateDialog}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter du materiel
+          </button>
+        </div>
       </div>
 
       {/* Feedback message */}
@@ -274,6 +354,55 @@ export function AdminEquipmentPage() {
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
+
+              {/* Separator */}
+              <div className="border-t border-border pt-2">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Propriete & valeur</p>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Proprietaire</label>
+                <select
+                  value={formOwnerName}
+                  onChange={(e) => setFormOwnerName(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">— Festival (par defaut)</option>
+                  {owners.map((o) => (
+                    <option key={o.id} value={o.name}>{o.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Valeur (€)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formValueEuros}
+                      onChange={(e) => setFormValueEuros(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <Euro className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Acquisition</label>
+                  <select
+                    value={formAcquisitionType}
+                    onChange={(e) => setFormAcquisitionType(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="owned">Achat</option>
+                    <option value="loaned">Pret</option>
+                    <option value="rented">Location</option>
+                  </select>
+                </div>
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button
@@ -297,6 +426,91 @@ export function AdminEquipmentPage() {
         </div>
       )}
 
+      {/* Owner Management Dialog */}
+      {showOwnerDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                <Users className="mr-2 inline h-5 w-5" />
+                Proprietaires de materiel
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowOwnerDialog(false)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Existing owners list */}
+            {owners.length > 0 && (
+              <div className="mb-4 max-h-48 space-y-2 overflow-y-auto">
+                {owners.map((owner) => (
+                  <div key={owner.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">{owner.name}</span>
+                      {owner.contact_info && (
+                        <span className="ml-2 text-xs text-muted-foreground">{owner.contact_info}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteOwner(owner)}
+                      className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {owners.length === 0 && (
+              <p className="mb-4 text-sm text-muted-foreground">Aucun proprietaire enregistre.</p>
+            )}
+
+            {/* Add new owner form */}
+            <div className="border-t border-border pt-4">
+              <p className="mb-3 text-sm font-medium text-foreground">Nouveau proprietaire</p>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={ownerFormName}
+                  onChange={(e) => setOwnerFormName(e.target.value)}
+                  placeholder="Nom du proprietaire"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <input
+                  type="text"
+                  value={ownerFormContact}
+                  onChange={(e) => setOwnerFormContact(e.target.value)}
+                  placeholder="Contact (email, tel...)"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <textarea
+                  value={ownerFormNotes}
+                  onChange={(e) => setOwnerFormNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Notes (optionnel)"
+                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateOwner}
+                  disabled={ownerSubmitting || !ownerFormName.trim()}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {ownerSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  <Plus className="h-4 w-4" />
+                  Ajouter
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-8 xl:grid-cols-[1fr_380px]">
         {/* Equipment Inventory */}
         <div>
@@ -315,14 +529,17 @@ export function AdminEquipmentPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Categorie
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Total
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Proprietaire
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Affecte
+                      Valeur
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Disponible
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Qte
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Statut
@@ -355,14 +572,23 @@ export function AdminEquipmentPage() {
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
                           {item.category || '—'}
                         </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-center text-sm text-foreground">
-                          {item.total_quantity}
+                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
+                          {item.owner_name || '—'}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-center text-sm text-muted-foreground">
-                          {assigned}
+                          {item.value_cents ? `${(item.value_cents / 100).toFixed(2)} €` : '—'}
                         </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-foreground">
-                          {available}
+                        <td className="whitespace-nowrap px-6 py-4 text-center">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            item.acquisition_type === 'loaned' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                            item.acquisition_type === 'rented' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                            'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                          }`}>
+                            {ACQUISITION_LABELS[item.acquisition_type] || item.acquisition_type}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4 text-center text-sm text-foreground">
+                          {available}/{item.total_quantity}
                         </td>
                         <td className="whitespace-nowrap px-6 py-4 text-center">
                           {available === 0 ? (

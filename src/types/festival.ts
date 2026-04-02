@@ -4,6 +4,17 @@
 
 import type { EditionStatus, FestivalRole, FestivalStatus } from './enums';
 
+/** SMTP / email configuration for a festival. */
+export interface EmailConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  from_email: string;
+  from_name: string;
+  encryption: 'tls' | 'ssl' | 'none';
+}
+
 /** Social media links associated with a festival. */
 export interface SocialLinks {
   website?: string;
@@ -49,10 +60,20 @@ export interface Festival {
   location_lat: number | null;
   /** Longitude coordinate. */
   location_lng: number | null;
+  /** Contact email address. */
+  contact_email: string | null;
   /** Social media and web links. */
   social_links: SocialLinks | null;
   /** Freeform tags for discovery and filtering. */
   tags: string[];
+  /** Font family for public pages. */
+  theme_font: string | null;
+  /** Custom CSS for public pages. */
+  custom_css: string | null;
+  /** Header layout style. */
+  header_style: string | null;
+  /** SMTP / email configuration. */
+  email_config: EmailConfig | null;
   /** Publication status. */
   status: FestivalStatus;
   /** User id of the festival creator. */
@@ -74,6 +95,11 @@ export interface FestivalMember {
   invited_by: string | null;
   /** ISO 8601 timestamp of when the user joined. */
   joined_at: string;
+  /** Joined profile fields (returned by /members endpoint). */
+  username?: string;
+  display_name?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
 }
 
 /** Visitor opening hours for an edition day. */

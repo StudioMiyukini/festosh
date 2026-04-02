@@ -5,6 +5,15 @@
 /** Role a user holds at the platform level. */
 export type PlatformRole = 'user' | 'organizer' | 'admin';
 
+/** Self-declared user type chosen at signup. */
+export type UserType = 'visitor' | 'volunteer' | 'exhibitor' | 'organizer';
+
+/** Type of uploaded document. */
+export type DocumentType = 'kbis' | 'insurance' | 'id_card' | 'association_registration' | 'other';
+
+/** Verification status of an uploaded document. */
+export type DocumentStatus = 'pending' | 'verified' | 'rejected';
+
 /** Role a user holds within a specific festival. */
 export type FestivalRole =
   | 'owner'
@@ -50,7 +59,20 @@ export type BlockType =
   | 'contact_form'
   | 'faq'
   | 'countdown'
-  | 'custom_html';
+  | 'custom_html'
+  | 'image_text'
+  | 'cta'
+  | 'testimonial'
+  | 'pricing_table'
+  | 'icon_box'
+  | 'team_member'
+  | 'stats'
+  | 'separator'
+  | 'spacer'
+  | 'alert'
+  | 'tabs'
+  | 'logo_carousel'
+  | 'button';
 
 /** Whether a budget entry represents income or an expense. */
 export type BudgetEntryType = 'income' | 'expense';

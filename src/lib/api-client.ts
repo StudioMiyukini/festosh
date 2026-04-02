@@ -102,6 +102,35 @@ class ApiClient {
     return this.request<T>('DELETE', path);
   }
 
+  /** Upload a file via multipart/form-data */
+  async uploadFile<T>(path: string, formData: FormData): Promise<ApiResponse<T>> {
+    const url = `${API_BASE}${path}`;
+    const headers: HeadersInit = {};
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    // Do NOT set Content-Type — browser sets it with boundary for FormData
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      const json: ApiResponse<T> = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: json.error || `HTTP ${response.status}` };
+      }
+
+      return json;
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    }
+  }
+
   /** Build query string from params */
   static queryString(params: Record<string, string | number | boolean | string[] | undefined>): string {
     const searchParams = new URLSearchParams();

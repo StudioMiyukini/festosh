@@ -18,6 +18,8 @@ export interface CmsPage {
   is_published: boolean;
   /** Whether this page serves as the festival homepage. */
   is_homepage: boolean;
+  /** Whether this is a system (mandatory) page that cannot be deleted. */
+  is_system: boolean;
   /** SEO meta description. */
   meta_description: string | null;
   /** Display order among sibling pages. */
@@ -26,6 +28,22 @@ export interface CmsPage {
   created_at: string;
   /** ISO 8601 timestamp. */
   updated_at: string;
+}
+
+/** A navigation menu item for a festival site. */
+export interface CmsNavItem {
+  id: string;
+  festival_id: string;
+  parent_id: string | null;
+  label: string;
+  link_type: 'page' | 'internal' | 'external';
+  target: string;
+  sort_order: number;
+  is_visible: boolean;
+  open_new_tab: boolean;
+  created_at: string;
+  updated_at: string;
+  children?: CmsNavItem[];
 }
 
 /**
@@ -62,6 +80,8 @@ export interface HeroBlockContent {
   background_image_url?: string;
   cta_label?: string;
   cta_url?: string;
+  cta2_label?: string;
+  cta2_url?: string;
   overlay_opacity?: number;
 }
 
@@ -163,6 +183,136 @@ export interface CustomHtmlBlockContent {
   html: string;
 }
 
+/** Content for the "image_text" block type (image + text side by side). */
+export interface ImageTextBlockContent {
+  image_url: string;
+  alt_text?: string;
+  /** Position of the image relative to text. */
+  image_position: 'left' | 'right';
+  title?: string;
+  body: string;
+  /** Vertical alignment. */
+  vertical_align?: 'top' | 'center' | 'bottom';
+}
+
+/** Content for the "cta" block type (call to action). */
+export interface CtaBlockContent {
+  title: string;
+  subtitle?: string;
+  button_label: string;
+  button_url: string;
+  background_color?: string;
+  text_color?: string;
+  /** Second button (optional). */
+  button2_label?: string;
+  button2_url?: string;
+}
+
+/** Content for the "testimonial" block type. */
+export interface TestimonialBlockContent {
+  items: Array<{
+    quote: string;
+    author_name: string;
+    author_role?: string;
+    avatar_url?: string;
+    rating?: number;
+  }>;
+}
+
+/** Content for the "pricing_table" block type. */
+export interface PricingTableBlockContent {
+  plans: Array<{
+    name: string;
+    price: string;
+    period?: string;
+    description?: string;
+    features: string[];
+    button_label?: string;
+    button_url?: string;
+    is_highlighted?: boolean;
+  }>;
+}
+
+/** Content for the "icon_box" block type. */
+export interface IconBoxBlockContent {
+  items: Array<{
+    icon: string;
+    title: string;
+    description: string;
+    link_url?: string;
+  }>;
+  columns?: number;
+}
+
+/** Content for the "team_member" block type. */
+export interface TeamMemberBlockContent {
+  members: Array<{
+    name: string;
+    role: string;
+    photo_url?: string;
+    bio?: string;
+    social_links?: Record<string, string>;
+  }>;
+}
+
+/** Content for the "stats" block type (key figures / counters). */
+export interface StatsBlockContent {
+  items: Array<{
+    value: string;
+    label: string;
+    prefix?: string;
+    suffix?: string;
+  }>;
+}
+
+/** Content for the "separator" block type. */
+export interface SeparatorBlockContent {
+  style: 'solid' | 'dashed' | 'dotted' | 'double';
+  color?: string;
+  width?: string;
+}
+
+/** Content for the "spacer" block type. */
+export interface SpacerBlockContent {
+  height: number;
+}
+
+/** Content for the "alert" block type. */
+export interface AlertBlockContent {
+  type: 'info' | 'success' | 'warning' | 'error';
+  title?: string;
+  message: string;
+  dismissible?: boolean;
+}
+
+/** Content for the "tabs" block type. */
+export interface TabsBlockContent {
+  tabs: Array<{
+    title: string;
+    body: string;
+  }>;
+}
+
+/** Content for the "logo_carousel" block type. */
+export interface LogoCarouselBlockContent {
+  logos: Array<{
+    image_url: string;
+    alt_text?: string;
+    link_url?: string;
+  }>;
+  title?: string;
+}
+
+/** Content for the "button" block type. */
+export interface ButtonBlockContent {
+  label: string;
+  url: string;
+  style: 'primary' | 'secondary' | 'outline' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  align?: 'left' | 'center' | 'right';
+  open_new_tab?: boolean;
+}
+
 /** Union of all typed block content payloads, keyed by block type. */
 export interface BlockContentMap {
   hero: HeroBlockContent;
@@ -177,6 +327,19 @@ export interface BlockContentMap {
   faq: FaqBlockContent;
   countdown: CountdownBlockContent;
   custom_html: CustomHtmlBlockContent;
+  image_text: ImageTextBlockContent;
+  cta: CtaBlockContent;
+  testimonial: TestimonialBlockContent;
+  pricing_table: PricingTableBlockContent;
+  icon_box: IconBoxBlockContent;
+  team_member: TeamMemberBlockContent;
+  stats: StatsBlockContent;
+  separator: SeparatorBlockContent;
+  spacer: SpacerBlockContent;
+  alert: AlertBlockContent;
+  tabs: TabsBlockContent;
+  logo_carousel: LogoCarouselBlockContent;
+  button: ButtonBlockContent;
 }
 
 /**

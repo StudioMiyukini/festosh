@@ -13,11 +13,13 @@ if (!existsSync(dataDir)) {
   mkdirSync(dataDir, { recursive: true });
 }
 
-// Create the SQLite connection with WAL mode for better concurrency
+// Create the SQLite connection with security and performance pragmas
 const sqlite = new Database(DB_PATH);
-sqlite.pragma('journal_mode = WAL');
-sqlite.pragma('foreign_keys = ON');
-sqlite.pragma('busy_timeout = 5000');
+sqlite.pragma('journal_mode = WAL');       // Better concurrency
+sqlite.pragma('foreign_keys = ON');        // Referential integrity
+sqlite.pragma('busy_timeout = 5000');      // Wait on locked DB
+sqlite.pragma('secure_delete = ON');       // Zero-fill deleted data (prevents recovery)
+sqlite.pragma('auto_vacuum = INCREMENTAL');// Reclaim space from deleted records
 
 // Create the Drizzle ORM instance with full schema for relational queries
 export const db = drizzle(sqlite, { schema });

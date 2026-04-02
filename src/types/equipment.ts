@@ -21,9 +21,26 @@ export interface EquipmentItem {
   photo_url: string | null;
   /** Total quantity owned by the festival. */
   total_quantity: number;
+  /** Name of the owner (person or company). */
+  owner_name: string | null;
+  /** Value in cents. */
+  value_cents: number;
+  /** How the item was acquired: owned, loaned, rented. */
+  acquisition_type: string;
   /** ISO 8601 timestamp. */
   created_at: string;
   /** ISO 8601 timestamp. */
+  updated_at: string;
+}
+
+/** An equipment owner associated with a festival. */
+export interface EquipmentOwner {
+  id: string;
+  festival_id: string;
+  name: string;
+  contact_info: string | null;
+  notes: string | null;
+  created_at: string;
   updated_at: string;
 }
 

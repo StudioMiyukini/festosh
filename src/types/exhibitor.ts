@@ -55,6 +55,41 @@ export interface PlanPosition {
   y: number;
 }
 
+/** Pricing mode for booth types / locations. */
+export type PricingMode = 'flat' | 'per_day';
+
+/** Equipment option on a booth type: included (free) or paid. */
+export interface BoothEquipmentOption {
+  item_id: string;
+  included: boolean;
+  price_cents: number;
+}
+
+/**
+ * A booth type template defining default size, price, and options.
+ */
+export interface BoothType {
+  id: string;
+  edition_id: string;
+  name: string;
+  description: string | null;
+  width_m: number | null;
+  depth_m: number | null;
+  price_cents: number;
+  pricing_mode: PricingMode;
+  has_electricity: number;
+  electricity_price_cents: number;
+  has_water: number;
+  water_price_cents: number;
+  max_wattage: number | null;
+  equipment_options: BoothEquipmentOption[] | null;
+  color: string;
+  sort_order: number;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * A physical booth location within an edition's floor plan.
  */
@@ -66,19 +101,28 @@ export interface BoothLocation {
   /** Zone or area grouping (e.g. "Hall A"). */
   zone: string | null;
   /** Width in metres. */
-  width: number | null;
+  width_m: number | null;
   /** Depth in metres. */
-  depth: number | null;
+  depth_m: number | null;
+  /** Reference to booth type. */
+  booth_type_id: string | null;
   /** Available utilities at the booth. */
-  utilities: BoothUtilities | null;
+  has_electricity: number;
+  electricity_price_cents: number;
+  has_water: number;
+  water_price_cents: number;
+  max_wattage: number | null;
   /** Price in the smallest currency unit (cents). */
   price_cents: number | null;
-  /** List of equipment included with the booth. */
+  /** flat = whole event, per_day = per day. */
+  pricing_mode: PricingMode;
+  /** List of equipment item IDs included with the booth. */
   equipment_included: string[] | null;
   /** Position on the floor plan canvas. */
   plan_position: PlanPosition | null;
   /** Whether the booth is available for reservation. */
-  is_available: boolean;
+  is_available: number;
+  notes: string | null;
   /** ISO 8601 timestamp. */
   created_at: string;
   /** ISO 8601 timestamp. */

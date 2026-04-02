@@ -6,6 +6,7 @@ import { useAuthInit } from '@/hooks/use-auth';
 import { useAuthStore } from '@/stores/auth-store';
 import { router } from '@/router';
 import { LoadingScreen } from '@/components/shared/LoadingScreen';
+import { CookieConsent } from '@/components/shared/CookieConsent';
 
 function AppContent() {
   useAuthInit();
@@ -22,6 +23,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />
+      <CookieConsent />
       <Toaster
         position="top-right"
         richColors

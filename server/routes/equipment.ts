@@ -6,7 +6,7 @@ import { Hono } from 'hono';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
-import { equipmentItems, equipmentAssignments } from '../db/schema.js';
+import { equipmentItems, equipmentAssignments, equipmentOwners } from '../db/schema.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole } from '../middleware/festival-auth.js';
 import { formatResponse } from '../lib/format.js';
@@ -45,7 +45,7 @@ equipmentRoutes.post(
     try {
       const festivalId = c.req.param('festivalId');
       const body = await c.req.json();
-      const { name, description, category, unit, total_quantity, photo_url } = body;
+      const { name, description, category, unit, total_quantity, photo_url, owner_name, value_cents, acquisition_type } = body;
 
       if (!name) {
         return c.json({ success: false, error: 'Item name is required' }, 400);
@@ -64,6 +64,9 @@ equipmentRoutes.post(
           unit: unit || 'unit',
           photoUrl: photo_url || null,
           totalQuantity: total_quantity || 1,
+          ownerName: owner_name || null,
+          valueCents: value_cents ?? 0,
+          acquisitionType: acquisition_type || 'owned',
           createdAt: now,
           updatedAt: now,
         })
@@ -106,6 +109,9 @@ equipmentRoutes.put('/items/:id', authMiddleware, async (c) => {
       unit: 'unit',
       total_quantity: 'totalQuantity',
       photo_url: 'photoUrl',
+      owner_name: 'ownerName',
+      value_cents: 'valueCents',
+      acquisition_type: 'acquisitionType',
     };
 
     for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
@@ -260,6 +266,129 @@ equipmentRoutes.put('/assignments/:id', authMiddleware, async (c) => {
   } catch (error) {
     console.error('[equipment] Update assignment error:', error);
     return c.json({ success: false, error: 'Failed to update equipment assignment' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /festival/:festivalId/owners — list equipment owners
+// ---------------------------------------------------------------------------
+equipmentRoutes.get('/festival/:festivalId/owners', async (c) => {
+  try {
+    const festivalId = c.req.param('festivalId');
+    const owners = db
+      .select()
+      .from(equipmentOwners)
+      .where(eq(equipmentOwners.festivalId, festivalId))
+      .all();
+    return c.json({ success: true, data: owners.map((o) => formatResponse(o)) });
+  } catch (error) {
+    console.error('[equipment] List owners error:', error);
+    return c.json({ success: false, error: 'Failed to list equipment owners' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /festival/:festivalId/owners — create equipment owner
+// ---------------------------------------------------------------------------
+equipmentRoutes.post(
+  '/festival/:festivalId/owners',
+  authMiddleware,
+  festivalMemberMiddleware,
+  requireFestivalRole(['owner', 'admin', 'moderator']),
+  async (c) => {
+    try {
+      const festivalId = c.req.param('festivalId');
+      const body = await c.req.json();
+      const { name, contact_info, notes } = body;
+
+      if (!name) {
+        return c.json({ success: false, error: 'Owner name is required' }, 400);
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const id = crypto.randomUUID();
+
+      db.insert(equipmentOwners)
+        .values({
+          id,
+          festivalId,
+          name,
+          contactInfo: contact_info || null,
+          notes: notes || null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      const owner = db
+        .select()
+        .from(equipmentOwners)
+        .where(eq(equipmentOwners.id, id))
+        .get();
+
+      return c.json({ success: true, data: owner ? formatResponse(owner) : null }, 201);
+    } catch (error) {
+      console.error('[equipment] Create owner error:', error);
+      return c.json({ success: false, error: 'Failed to create equipment owner' }, 500);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PUT /owners/:id — update equipment owner
+// ---------------------------------------------------------------------------
+equipmentRoutes.put('/owners/:id', authMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const now = Math.floor(Date.now() / 1000);
+
+    const owner = db.select().from(equipmentOwners).where(eq(equipmentOwners.id, id)).get();
+    if (!owner) {
+      return c.json({ success: false, error: 'Equipment owner not found' }, 404);
+    }
+
+    const updateData: Record<string, unknown> = { updatedAt: now };
+    const keyMap: Record<string, string> = {
+      name: 'name',
+      contact_info: 'contactInfo',
+      notes: 'notes',
+    };
+
+    for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
+      if (body[bodyKey] !== undefined) {
+        updateData[schemaKey] = body[bodyKey];
+      }
+    }
+
+    db.update(equipmentOwners).set(updateData).where(eq(equipmentOwners.id, id)).run();
+    const updated = db.select().from(equipmentOwners).where(eq(equipmentOwners.id, id)).get();
+
+    return c.json({ success: true, data: updated ? formatResponse(updated) : null });
+  } catch (error) {
+    console.error('[equipment] Update owner error:', error);
+    return c.json({ success: false, error: 'Failed to update equipment owner' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /owners/:id — delete equipment owner
+// ---------------------------------------------------------------------------
+equipmentRoutes.delete('/owners/:id', authMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id');
+
+    const owner = db.select().from(equipmentOwners).where(eq(equipmentOwners.id, id)).get();
+    if (!owner) {
+      return c.json({ success: false, error: 'Equipment owner not found' }, 404);
+    }
+
+    db.delete(equipmentOwners).where(eq(equipmentOwners.id, id)).run();
+
+    return c.json({ success: true, data: { message: 'Equipment owner deleted' } });
+  } catch (error) {
+    console.error('[equipment] Delete owner error:', error);
+    return c.json({ success: false, error: 'Failed to delete equipment owner' }, 500);
   }
 });
 

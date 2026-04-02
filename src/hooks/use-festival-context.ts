@@ -13,6 +13,7 @@ export function useFestivalContext() {
   const { festival, isResolving, error, setFestival, setActiveEdition, setUserRole, setResolving, setError } = useTenantStore();
   const { user } = useAuthStore();
 
+  // Load festival + edition when slug changes
   useEffect(() => {
     if (!slug) return;
 
@@ -35,18 +36,25 @@ export function useFestivalContext() {
         setActiveEdition(editionResult.data);
       }
 
-      // Resolve user's role in this festival
-      if (user) {
-        const roleResult = await festivalService.getUserRole(result.data.id);
-        if (roleResult.data) {
-          setUserRole(roleResult.data as never);
-        }
-      }
-
       setResolving(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, user?.id]);
+  }, [slug]);
+
+  // Resolve user role separately so it reacts to late auth
+  useEffect(() => {
+    if (!festival || !user) {
+      setUserRole(null);
+      return;
+    }
+
+    festivalService.getUserRole(festival.id).then((roleResult) => {
+      if (roleResult.data) {
+        setUserRole(roleResult.data as never);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [festival?.id, user?.id]);
 
   return { festival, isResolving, error, slug: slug ?? '' };
 }

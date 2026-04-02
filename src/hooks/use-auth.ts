@@ -51,8 +51,8 @@ export function useAuth() {
       }
       return result;
     },
-    signUp: async (email: string, password: string, username: string) => {
-      const result = await authService.signUp(email, password, username);
+    signUp: async (data: Parameters<typeof authService.signUp>[0]) => {
+      const result = await authService.signUp(data);
       if (result.data) {
         const profileResult = await authService.getProfile();
         if (profileResult.data) {

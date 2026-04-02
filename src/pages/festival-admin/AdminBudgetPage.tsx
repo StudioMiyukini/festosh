@@ -18,9 +18,9 @@ import type { BudgetCategory, BudgetEntry } from '@/types/budget';
 import type { BudgetEntryType } from '@/types/enums';
 
 interface BudgetSummary {
-  total_income: number;
-  total_expenses: number;
-  balance: number;
+  total_income_cents: number;
+  total_expense_cents: number;
+  balance_cents: number;
 }
 
 export function AdminBudgetPage() {
@@ -60,10 +60,15 @@ export function AdminBudgetPage() {
     setLoading(true);
     setError(null);
 
+    const editionId = activeEdition?.id;
     const [summaryRes, categoriesRes, entriesRes] = await Promise.all([
-      api.get<BudgetSummary>(`/budget/festival/${festival.id}/summary`),
+      editionId
+        ? api.get<BudgetSummary>(`/budget/edition/${editionId}/summary`)
+        : Promise.resolve({ success: true, data: { total_income_cents: 0, total_expense_cents: 0, balance_cents: 0 } as BudgetSummary }),
       api.get<BudgetCategory[]>(`/budget/festival/${festival.id}/categories`),
-      api.get<BudgetEntry[]>(`/budget/festival/${festival.id}/entries`),
+      editionId
+        ? api.get<BudgetEntry[]>(`/budget/edition/${editionId}/entries`)
+        : Promise.resolve({ success: true, data: [] as BudgetEntry[], error: undefined }),
     ]);
 
     if (summaryRes.success && summaryRes.data) setSummary(summaryRes.data);
@@ -72,7 +77,7 @@ export function AdminBudgetPage() {
     else setError(entriesRes.error || 'Impossible de charger le budget.');
 
     setLoading(false);
-  }, [festival]);
+  }, [festival, activeEdition]);
 
   useEffect(() => {
     fetchData();
@@ -126,7 +131,7 @@ export function AdminBudgetPage() {
 
     if (editingEntry) {
       const res = await api.put<BudgetEntry>(
-        `/budget/festival/${festival.id}/entries/${editingEntry.id}`,
+        `/budget/entries/${editingEntry.id}`,
         payload
       );
       if (res.success && res.data) {
@@ -139,7 +144,7 @@ export function AdminBudgetPage() {
         setMessage({ type: 'error', text: res.error || 'Erreur lors de la mise a jour.' });
       }
     } else {
-      const res = await api.post<BudgetEntry>(`/budget/festival/${festival.id}/entries`, payload);
+      const res = await api.post<BudgetEntry>(`/budget/edition/${activeEdition.id}/entries`, payload);
       if (res.success && res.data) {
         setEntries((prev) => [...prev, res.data!]);
         setShowEntryDialog(false);
@@ -158,7 +163,7 @@ export function AdminBudgetPage() {
     if (!confirm(`Supprimer l'entree "${entry.description}" ?`)) return;
     setMessage(null);
 
-    const res = await api.delete(`/budget/festival/${festival.id}/entries/${entry.id}`);
+    const res = await api.delete(`/budget/entries/${entry.id}`);
     if (res.success) {
       setEntries((prev) => prev.filter((e) => e.id !== entry.id));
       setMessage({ type: 'success', text: 'Entree supprimee.' });
@@ -278,7 +283,7 @@ export function AdminBudgetPage() {
               <TrendingUp className="h-4 w-4 text-green-500" />
             </div>
             <p className="mt-2 text-2xl font-bold text-green-600">
-              {formatCurrency(summary.total_income)}
+              {formatCurrency(summary.total_income_cents)}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-6">
@@ -287,7 +292,7 @@ export function AdminBudgetPage() {
               <TrendingDown className="h-4 w-4 text-red-500" />
             </div>
             <p className="mt-2 text-2xl font-bold text-red-600">
-              {formatCurrency(summary.total_expenses)}
+              {formatCurrency(summary.total_expense_cents)}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-6">
@@ -297,10 +302,10 @@ export function AdminBudgetPage() {
             </div>
             <p
               className={`mt-2 text-2xl font-bold ${
-                summary.balance >= 0 ? 'text-green-600' : 'text-red-600'
+                summary.balance_cents >= 0 ? 'text-green-600' : 'text-red-600'
               }`}
             >
-              {formatCurrency(summary.balance)}
+              {formatCurrency(summary.balance_cents)}
             </p>
           </div>
         </div>

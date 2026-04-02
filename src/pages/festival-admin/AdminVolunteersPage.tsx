@@ -53,21 +53,33 @@ export function AdminVolunteersPage() {
     setLoading(true);
     setError(null);
 
-    const [rolesRes, shiftsRes, assignmentsRes, venuesRes] = await Promise.all([
+    const editionId = activeEdition?.id;
+    const [rolesRes, shiftsRes, venuesRes] = await Promise.all([
       api.get<VolunteerRole[]>(`/volunteers/festival/${festival.id}/roles`),
-      api.get<Shift[]>(`/volunteers/festival/${festival.id}/shifts`),
-      api.get<ShiftAssignment[]>(`/volunteers/festival/${festival.id}/assignments`),
+      editionId
+        ? api.get<Shift[]>(`/volunteers/edition/${editionId}/shifts`)
+        : Promise.resolve({ success: true, data: [] as Shift[], error: undefined }),
       api.get<Venue[]>(`/venues/festival/${festival.id}`),
     ]);
 
     if (rolesRes.success && rolesRes.data) setRoles(rolesRes.data);
-    if (shiftsRes.success && shiftsRes.data) setShifts(shiftsRes.data);
-    else setError(shiftsRes.error || 'Impossible de charger les donnees.');
-    if (assignmentsRes.success && assignmentsRes.data) setAssignments(assignmentsRes.data);
+    if (shiftsRes.success && shiftsRes.data) {
+      setShifts(shiftsRes.data);
+      // Extract assignments from shift data (backend nests them)
+      const allAssignments: ShiftAssignment[] = [];
+      for (const shift of shiftsRes.data) {
+        if ((shift as unknown as { assignments?: ShiftAssignment[] }).assignments) {
+          allAssignments.push(...(shift as unknown as { assignments: ShiftAssignment[] }).assignments);
+        }
+      }
+      setAssignments(allAssignments);
+    } else {
+      setError(shiftsRes.error || 'Impossible de charger les donnees.');
+    }
     if (venuesRes.success && venuesRes.data) setVenues(venuesRes.data);
 
     setLoading(false);
-  }, [festival]);
+  }, [festival, activeEdition]);
 
   useEffect(() => {
     fetchData();
@@ -103,14 +115,13 @@ export function AdminVolunteersPage() {
     setCreatingShift(true);
     setMessage(null);
 
-    const res = await api.post<Shift>(`/volunteers/festival/${festival.id}/shifts`, {
-      edition_id: activeEdition.id,
+    const res = await api.post<Shift>(`/volunteers/edition/${activeEdition.id}/shifts`, {
       title: shiftFormTitle.trim(),
       description: shiftFormDescription.trim() || null,
       role_id: shiftFormRoleId,
       venue_id: shiftFormVenueId || null,
-      start_time: new Date(shiftFormStartTime).toISOString(),
-      end_time: new Date(shiftFormEndTime).toISOString(),
+      start_time: Math.floor(new Date(shiftFormStartTime).getTime() / 1000),
+      end_time: Math.floor(new Date(shiftFormEndTime).getTime() / 1000),
       max_volunteers: Number(shiftFormMaxVolunteers) || 4,
     });
 
@@ -136,7 +147,7 @@ export function AdminVolunteersPage() {
     if (!confirm(`Supprimer le creneau "${shift.title}" ?`)) return;
     setMessage(null);
 
-    const res = await api.delete(`/volunteers/festival/${festival.id}/shifts/${shift.id}`);
+    const res = await api.delete(`/volunteers/shifts/${shift.id}`);
     if (res.success) {
       setShifts((prev) => prev.filter((s) => s.id !== shift.id));
       setMessage({ type: 'success', text: 'Creneau supprime.' });
@@ -558,13 +569,13 @@ export function AdminVolunteersPage() {
                         <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {new Date(shift.start_time).toLocaleDateString('fr-FR')}
+                            {new Date(Number(shift.start_time) * 1000).toLocaleDateString('fr-FR')}
                           </span>
                           <span className="inline-flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {new Date(shift.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(Number(shift.start_time) * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             {' - '}
-                            {new Date(shift.end_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(Number(shift.end_time) * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                           {venueName && (
                             <span className="inline-flex items-center gap-1">

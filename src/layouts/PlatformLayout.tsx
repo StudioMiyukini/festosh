@@ -9,6 +9,8 @@ const NAV_LINKS = [
   { to: '/', label: 'Accueil' },
   { to: '/directory', label: 'Annuaire' },
   { to: '/dashboard', label: 'Dashboard' },
+  { to: '/docs', label: 'Documentation' },
+  { to: '/about', label: 'A propos' },
 ];
 
 export function PlatformLayout() {
@@ -210,9 +212,12 @@ export function PlatformLayout() {
       {/* Footer */}
       <footer className="border-t border-border bg-background">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-muted-foreground">
-            &copy; 2026 Festosh
-          </p>
+          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+            <span>&copy; 2026 Festosh</span>
+            <Link to="/about" className="hover:text-foreground hover:underline">A propos</Link>
+            <Link to="/docs" className="hover:text-foreground hover:underline">Documentation</Link>
+            <Link to="/privacy" className="hover:text-foreground hover:underline">Confidentialite</Link>
+          </div>
         </div>
       </footer>
     </div>

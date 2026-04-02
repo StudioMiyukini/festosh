@@ -48,9 +48,11 @@ export function AdminProgrammingPage() {
     setLoading(true);
     setError(null);
 
-    const editionQuery = activeEdition ? `?edition_id=${activeEdition.id}` : '';
+    const editionId = activeEdition?.id;
     const [eventsRes, venuesRes] = await Promise.all([
-      api.get<Event[]>(`/events/festival/${festival.id}${editionQuery}`),
+      editionId
+        ? api.get<Event[]>(`/events/edition/${editionId}`)
+        : Promise.resolve({ success: true, data: [] as Event[], error: undefined }),
       api.get<Venue[]>(`/venues/festival/${festival.id}`),
     ]);
 
@@ -89,8 +91,13 @@ export function AdminProgrammingPage() {
     setEditingEvent(event);
     setFormTitle(event.title);
     setFormDescription(event.description || '');
-    setFormStartTime(event.start_time.slice(0, 16)); // datetime-local format
-    setFormEndTime(event.end_time.slice(0, 16));
+    // Convert Unix timestamp to datetime-local format
+    const toLocalDatetime = (ts: number | string) => {
+      const d = new Date(Number(ts) * 1000);
+      return d.toISOString().slice(0, 16);
+    };
+    setFormStartTime(toLocalDatetime(event.start_time));
+    setFormEndTime(toLocalDatetime(event.end_time));
     setFormVenueId(event.venue_id || '');
     setFormCategory(event.category || '');
     setFormIsPublic(event.is_public);
@@ -103,18 +110,17 @@ export function AdminProgrammingPage() {
     setMessage(null);
 
     const payload = {
-      edition_id: activeEdition.id,
       title: formTitle.trim(),
       description: formDescription.trim() || null,
-      start_time: new Date(formStartTime).toISOString(),
-      end_time: new Date(formEndTime).toISOString(),
+      start_time: Math.floor(new Date(formStartTime).getTime() / 1000),
+      end_time: Math.floor(new Date(formEndTime).getTime() / 1000),
       venue_id: formVenueId || null,
       category: formCategory.trim() || null,
       is_public: formIsPublic,
     };
 
     if (editingEvent) {
-      const res = await api.put<Event>(`/events/festival/${festival.id}/${editingEvent.id}`, payload);
+      const res = await api.put<Event>(`/events/${editingEvent.id}`, payload);
       if (res.success && res.data) {
         setEvents((prev) => prev.map((e) => (e.id === editingEvent.id ? res.data! : e)));
         setShowDialog(false);
@@ -124,7 +130,7 @@ export function AdminProgrammingPage() {
         setMessage({ type: 'error', text: res.error || 'Erreur lors de la mise a jour.' });
       }
     } else {
-      const res = await api.post<Event>(`/events/festival/${festival.id}`, payload);
+      const res = await api.post<Event>(`/events/edition/${activeEdition.id}`, payload);
       if (res.success && res.data) {
         setEvents((prev) => [...prev, res.data!]);
         setShowDialog(false);
@@ -142,7 +148,7 @@ export function AdminProgrammingPage() {
     if (!confirm(`Supprimer l'evenement "${event.title}" ?`)) return;
     setMessage(null);
 
-    const res = await api.delete(`/events/festival/${festival.id}/${event.id}`);
+    const res = await api.delete(`/events/${event.id}`);
     if (res.success) {
       setEvents((prev) => prev.filter((e) => e.id !== event.id));
       setMessage({ type: 'success', text: 'Evenement supprime.' });
@@ -173,6 +179,18 @@ export function AdminProgrammingPage() {
       setMessage({ type: 'error', text: res.error || 'Erreur lors de la creation du lieu.' });
     }
     setCreatingVenue(false);
+  };
+
+  const handleDeleteVenue = async (venue: Venue) => {
+    if (!confirm(`Supprimer le lieu "${venue.name}" ?`)) return;
+    setMessage(null);
+    const res = await api.delete(`/venues/${venue.id}`);
+    if (res.success) {
+      setVenues((prev) => prev.filter((v) => v.id !== venue.id));
+      setMessage({ type: 'success', text: 'Lieu supprime.' });
+    } else {
+      setMessage({ type: 'error', text: res.error || 'Erreur lors de la suppression du lieu.' });
+    }
   };
 
   const getVenueName = (venueId: string | null) => {
@@ -474,14 +492,14 @@ export function AdminProgrammingPage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">
-                      {new Date(event.start_time).toLocaleDateString('fr-FR')}
+                      {new Date(Number(event.start_time) * 1000).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        {new Date(event.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(Number(event.start_time) * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         {' - '}
-                        {new Date(event.end_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(Number(event.end_time) * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
@@ -544,13 +562,23 @@ export function AdminProgrammingPage() {
             {venues.map((venue) => (
               <div
                 key={venue.id}
-                className="rounded-lg border border-border bg-card px-4 py-3"
+                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
               >
-                <p className="text-sm font-medium text-foreground">{venue.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {venue.venue_type}
-                  {venue.capacity ? ` — ${venue.capacity} places` : ''}
-                </p>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{venue.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {venue.venue_type}
+                    {venue.capacity ? ` — ${venue.capacity} places` : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteVenue(venue)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  title="Supprimer le lieu"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
             {venues.length === 0 && (

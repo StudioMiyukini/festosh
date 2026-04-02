@@ -1,12 +1,12 @@
 /**
- * CMS routes — pages and blocks for festival websites.
+ * CMS routes — pages, blocks, and navigation for festival websites.
  */
 
 import { Hono } from 'hono';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
-import { cmsPages, cmsBlocks, festivalMembers } from '../db/schema.js';
+import { cmsPages, cmsBlocks, cmsNavigation, festivalMembers } from '../db/schema.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole, hasMinRole } from '../middleware/festival-auth.js';
 import { formatResponse } from '../lib/format.js';
@@ -21,14 +21,31 @@ function formatBlock(b: typeof cmsBlocks.$inferSelect) {
   return formatResponse(b, ['content', 'settings']);
 }
 
-function safeParseJson(value: string | null | undefined, fallback: unknown): unknown {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
+function formatNav(n: typeof cmsNavigation.$inferSelect) {
+  return formatResponse(n);
 }
+
+// ─── Default system pages for new festivals ───────────────────────────────
+const DEFAULT_PAGES = [
+  { slug: 'accueil', title: 'Accueil', isHomepage: 1, sortOrder: 0 },
+  { slug: 'programme', title: 'Programme', isHomepage: 0, sortOrder: 1 },
+  { slug: 'plan', title: 'Plan', isHomepage: 0, sortOrder: 2 },
+  { slug: 'exposants', title: 'Exposants', isHomepage: 0, sortOrder: 3 },
+  { slug: 'candidature', title: 'Candidature', isHomepage: 0, sortOrder: 4 },
+];
+
+// Map system page slugs to internal routes
+const SYSTEM_PAGE_ROUTES: Record<string, string> = {
+  accueil: '/',
+  programme: '/schedule',
+  plan: '/map',
+  exposants: '/exhibitors',
+  candidature: '/apply',
+};
+
+// ===========================================================================
+// PAGES
+// ===========================================================================
 
 // ---------------------------------------------------------------------------
 // GET /festival/:festivalId/pages — list pages
@@ -38,7 +55,6 @@ cmsRoutes.get('/festival/:festivalId/pages', optionalAuth, async (c) => {
     const festivalId = c.req.param('festivalId');
     const userId = c.get('userId');
 
-    // Determine if user is an editor+
     let isEditor = false;
     if (userId) {
       const platformRole = c.get('userRole');
@@ -60,13 +76,14 @@ cmsRoutes.get('/festival/:festivalId/pages', optionalAuth, async (c) => {
     if (isEditor) {
       rows = db.select().from(cmsPages).where(eq(cmsPages.festivalId, festivalId)).all();
     } else {
-      // Public: only published pages
       rows = db
         .select()
         .from(cmsPages)
         .where(and(eq(cmsPages.festivalId, festivalId), eq(cmsPages.isPublished, 1)))
         .all();
     }
+
+    rows.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
     return c.json({ success: true, data: rows.map(formatPage) });
   } catch (error) {
@@ -105,6 +122,7 @@ cmsRoutes.post(
           slug,
           isPublished: is_published ? 1 : 0,
           isHomepage: is_homepage ? 1 : 0,
+          isSystem: 0,
           metaDescription: meta_description || null,
           sortOrder: sort_order || 0,
           createdBy: userId,
@@ -119,6 +137,97 @@ cmsRoutes.post(
     } catch (error) {
       console.error('[cms] Create page error:', error);
       return c.json({ success: false, error: 'Failed to create page' }, 500);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// POST /festival/:festivalId/pages/initialize-defaults — create system pages + nav
+// ---------------------------------------------------------------------------
+cmsRoutes.post(
+  '/festival/:festivalId/pages/initialize-defaults',
+  authMiddleware,
+  async (c) => {
+    try {
+      const festivalId = c.req.param('festivalId');
+      const userId = c.get('userId');
+      const now = Math.floor(Date.now() / 1000);
+
+      const createdPages: Array<{ id: string; slug: string; title: string }> = [];
+
+      for (const def of DEFAULT_PAGES) {
+        // Skip if page already exists
+        const existing = db
+          .select()
+          .from(cmsPages)
+          .where(and(eq(cmsPages.festivalId, festivalId), eq(cmsPages.slug, def.slug)))
+          .get();
+
+        if (existing) continue;
+
+        const pageId = crypto.randomUUID();
+        db.insert(cmsPages)
+          .values({
+            id: pageId,
+            festivalId,
+            slug: def.slug,
+            title: def.title,
+            isPublished: 1,
+            isHomepage: def.isHomepage,
+            isSystem: 1,
+            sortOrder: def.sortOrder,
+            createdBy: userId,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+
+        createdPages.push({ id: pageId, slug: def.slug, title: def.title });
+      }
+
+      // Create default navigation items
+      const existingNav = db
+        .select()
+        .from(cmsNavigation)
+        .where(eq(cmsNavigation.festivalId, festivalId))
+        .all();
+
+      if (existingNav.length === 0) {
+        // Get all pages to build nav
+        const allPages = db
+          .select()
+          .from(cmsPages)
+          .where(eq(cmsPages.festivalId, festivalId))
+          .all();
+
+        for (const def of DEFAULT_PAGES) {
+          const page = allPages.find((p) => p.slug === def.slug);
+          if (!page) continue;
+
+          const route = SYSTEM_PAGE_ROUTES[def.slug];
+
+          db.insert(cmsNavigation)
+            .values({
+              id: crypto.randomUUID(),
+              festivalId,
+              parentId: null,
+              label: def.title,
+              linkType: route ? 'internal' : 'page',
+              target: route || page.id,
+              sortOrder: def.sortOrder,
+              isVisible: 1,
+              openNewTab: 0,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .run();
+        }
+      }
+
+      return c.json({ success: true, data: { created_pages: createdPages.length } });
+    } catch (error) {
+      console.error('[cms] Initialize defaults error:', error);
+      return c.json({ success: false, error: 'Failed to initialize defaults' }, 500);
     }
   },
 );
@@ -141,20 +250,56 @@ cmsRoutes.get('/pages/:id', optionalAuth, async (c) => {
       .where(eq(cmsBlocks.pageId, pageId))
       .all();
 
-    // Sort blocks by sort_order
     blocks.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
-    const formattedBlocks = blocks.map(formatBlock);
 
     return c.json({
       success: true,
       data: {
         ...formatPage(page),
-        blocks: formattedBlocks,
+        blocks: blocks.map(formatBlock),
       },
     });
   } catch (error) {
     console.error('[cms] Get page error:', error);
+    return c.json({ success: false, error: 'Failed to fetch page' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /festival/:festivalId/pages/by-slug/:slug — get page by slug with blocks
+// ---------------------------------------------------------------------------
+cmsRoutes.get('/festival/:festivalId/pages/by-slug/:slug', optionalAuth, async (c) => {
+  try {
+    const festivalId = c.req.param('festivalId');
+    const slug = c.req.param('slug');
+
+    const page = db
+      .select()
+      .from(cmsPages)
+      .where(and(eq(cmsPages.festivalId, festivalId), eq(cmsPages.slug, slug)))
+      .get();
+
+    if (!page) {
+      return c.json({ success: false, error: 'Page not found' }, 404);
+    }
+
+    const blocks = db
+      .select()
+      .from(cmsBlocks)
+      .where(eq(cmsBlocks.pageId, page.id))
+      .all();
+
+    blocks.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    return c.json({
+      success: true,
+      data: {
+        ...formatPage(page),
+        blocks: blocks.map(formatBlock),
+      },
+    });
+  } catch (error) {
+    console.error('[cms] Get page by slug error:', error);
     return c.json({ success: false, error: 'Failed to fetch page' }, 500);
   }
 });
@@ -176,7 +321,13 @@ cmsRoutes.put('/pages/:id', authMiddleware, async (c) => {
     const updateData: Record<string, unknown> = { updatedAt: now };
 
     if (body.title !== undefined) updateData.title = body.title;
-    if (body.slug !== undefined) updateData.slug = body.slug;
+    if (body.slug !== undefined) {
+      // System pages cannot change slug
+      if (page.isSystem) {
+        return c.json({ success: false, error: 'Les pages systeme ne peuvent pas changer de slug.' }, 403);
+      }
+      updateData.slug = body.slug;
+    }
     if (body.is_published !== undefined) updateData.isPublished = body.is_published ? 1 : 0;
     if (body.is_homepage !== undefined) updateData.isHomepage = body.is_homepage ? 1 : 0;
     if (body.meta_description !== undefined) updateData.metaDescription = body.meta_description;
@@ -194,7 +345,7 @@ cmsRoutes.put('/pages/:id', authMiddleware, async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /pages/:id — delete page
+// DELETE /pages/:id — delete page (system pages cannot be deleted)
 // ---------------------------------------------------------------------------
 cmsRoutes.delete('/pages/:id', authMiddleware, async (c) => {
   try {
@@ -205,6 +356,12 @@ cmsRoutes.delete('/pages/:id', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Page not found' }, 404);
     }
 
+    if (page.isSystem) {
+      return c.json({ success: false, error: 'Les pages systeme ne peuvent pas etre supprimees.' }, 403);
+    }
+
+    // Delete all blocks belonging to this page
+    db.delete(cmsBlocks).where(eq(cmsBlocks.pageId, pageId)).run();
     db.delete(cmsPages).where(eq(cmsPages.id, pageId)).run();
 
     return c.json({ success: true, data: { message: 'Page deleted' } });
@@ -213,6 +370,10 @@ cmsRoutes.delete('/pages/:id', authMiddleware, async (c) => {
     return c.json({ success: false, error: 'Failed to delete page' }, 500);
   }
 });
+
+// ===========================================================================
+// BLOCKS
+// ===========================================================================
 
 // ---------------------------------------------------------------------------
 // POST /pages/:pageId/blocks — add block
@@ -251,10 +412,7 @@ cmsRoutes.post('/pages/:pageId/blocks', authMiddleware, async (c) => {
 
     const block = db.select().from(cmsBlocks).where(eq(cmsBlocks.id, id)).get();
 
-    return c.json({
-      success: true,
-      data: formatBlock(block!),
-    }, 201);
+    return c.json({ success: true, data: formatBlock(block!) }, 201);
   } catch (error) {
     console.error('[cms] Add block error:', error);
     return c.json({ success: false, error: 'Failed to add block' }, 500);
@@ -287,10 +445,7 @@ cmsRoutes.put('/blocks/:id', authMiddleware, async (c) => {
 
     const updated = db.select().from(cmsBlocks).where(eq(cmsBlocks.id, blockId)).get();
 
-    return c.json({
-      success: true,
-      data: formatBlock(updated!),
-    });
+    return c.json({ success: true, data: formatBlock(updated!) });
   } catch (error) {
     console.error('[cms] Update block error:', error);
     return c.json({ success: false, error: 'Failed to update block' }, 500);
@@ -324,22 +479,22 @@ cmsRoutes.delete('/blocks/:id', authMiddleware, async (c) => {
 cmsRoutes.put('/pages/:pageId/blocks/reorder', authMiddleware, async (c) => {
   try {
     const pageId = c.req.param('pageId');
-    const { block_ids } = await c.req.json();
+    const body = await c.req.json();
+    const blockIds = body.block_ids || body.blockIds;
 
-    if (!Array.isArray(block_ids)) {
+    if (!Array.isArray(blockIds)) {
       return c.json({ success: false, error: 'block_ids must be an array' }, 400);
     }
 
     const now = Math.floor(Date.now() / 1000);
 
-    for (let i = 0; i < block_ids.length; i++) {
+    for (let i = 0; i < blockIds.length; i++) {
       db.update(cmsBlocks)
         .set({ sortOrder: i, updatedAt: now })
-        .where(and(eq(cmsBlocks.id, block_ids[i]), eq(cmsBlocks.pageId, pageId)))
+        .where(and(eq(cmsBlocks.id, blockIds[i]), eq(cmsBlocks.pageId, pageId)))
         .run();
     }
 
-    // Return updated blocks
     const blocks = db
       .select()
       .from(cmsBlocks)
@@ -348,13 +503,189 @@ cmsRoutes.put('/pages/:pageId/blocks/reorder', authMiddleware, async (c) => {
 
     blocks.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-    const formattedBlocks = blocks.map(formatBlock);
-
-    return c.json({ success: true, data: formattedBlocks });
+    return c.json({ success: true, data: blocks.map(formatBlock) });
   } catch (error) {
     console.error('[cms] Reorder blocks error:', error);
     return c.json({ success: false, error: 'Failed to reorder blocks' }, 500);
   }
 });
+
+// ===========================================================================
+// NAVIGATION
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// GET /festival/:festivalId/navigation — list nav items (tree structure)
+// ---------------------------------------------------------------------------
+cmsRoutes.get('/festival/:festivalId/navigation', optionalAuth, async (c) => {
+  try {
+    const festivalId = c.req.param('festivalId');
+
+    const items = db
+      .select()
+      .from(cmsNavigation)
+      .where(eq(cmsNavigation.festivalId, festivalId))
+      .all();
+
+    items.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    // Build tree: top-level items with nested children
+    const formatted = items.map(formatNav);
+    const topLevel = formatted.filter((i) => !i.parent_id);
+    const children = formatted.filter((i) => i.parent_id);
+
+    const tree = topLevel.map((item) => ({
+      ...item,
+      children: children.filter((ch) => ch.parent_id === item.id),
+    }));
+
+    return c.json({ success: true, data: tree });
+  } catch (error) {
+    console.error('[cms] List navigation error:', error);
+    return c.json({ success: false, error: 'Failed to list navigation' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /festival/:festivalId/navigation — create nav item
+// ---------------------------------------------------------------------------
+cmsRoutes.post(
+  '/festival/:festivalId/navigation',
+  authMiddleware,
+  festivalMemberMiddleware,
+  requireFestivalRole(['owner', 'admin', 'editor']),
+  async (c) => {
+    try {
+      const festivalId = c.req.param('festivalId');
+      const body = await c.req.json();
+      const { label, link_type, target, parent_id, sort_order, is_visible, open_new_tab } = body;
+
+      if (!label || !link_type || !target) {
+        return c.json({ success: false, error: 'label, link_type, and target are required' }, 400);
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const id = crypto.randomUUID();
+
+      db.insert(cmsNavigation)
+        .values({
+          id,
+          festivalId,
+          parentId: parent_id || null,
+          label,
+          linkType: link_type,
+          target,
+          sortOrder: sort_order ?? 0,
+          isVisible: is_visible !== false ? 1 : 0,
+          openNewTab: open_new_tab ? 1 : 0,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      const nav = db.select().from(cmsNavigation).where(eq(cmsNavigation.id, id)).get();
+
+      return c.json({ success: true, data: formatNav(nav!) }, 201);
+    } catch (error) {
+      console.error('[cms] Create nav item error:', error);
+      return c.json({ success: false, error: 'Failed to create nav item' }, 500);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PUT /navigation/:id — update nav item
+// ---------------------------------------------------------------------------
+cmsRoutes.put('/navigation/:id', authMiddleware, async (c) => {
+  try {
+    const navId = c.req.param('id');
+    const body = await c.req.json();
+    const now = Math.floor(Date.now() / 1000);
+
+    const nav = db.select().from(cmsNavigation).where(eq(cmsNavigation.id, navId)).get();
+    if (!nav) {
+      return c.json({ success: false, error: 'Nav item not found' }, 404);
+    }
+
+    const updateData: Record<string, unknown> = { updatedAt: now };
+
+    if (body.label !== undefined) updateData.label = body.label;
+    if (body.link_type !== undefined) updateData.linkType = body.link_type;
+    if (body.target !== undefined) updateData.target = body.target;
+    if (body.parent_id !== undefined) updateData.parentId = body.parent_id || null;
+    if (body.sort_order !== undefined) updateData.sortOrder = body.sort_order;
+    if (body.is_visible !== undefined) updateData.isVisible = body.is_visible ? 1 : 0;
+    if (body.open_new_tab !== undefined) updateData.openNewTab = body.open_new_tab ? 1 : 0;
+
+    db.update(cmsNavigation).set(updateData).where(eq(cmsNavigation.id, navId)).run();
+
+    const updated = db.select().from(cmsNavigation).where(eq(cmsNavigation.id, navId)).get();
+
+    return c.json({ success: true, data: formatNav(updated!) });
+  } catch (error) {
+    console.error('[cms] Update nav item error:', error);
+    return c.json({ success: false, error: 'Failed to update nav item' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /navigation/:id — delete nav item (+ children)
+// ---------------------------------------------------------------------------
+cmsRoutes.delete('/navigation/:id', authMiddleware, async (c) => {
+  try {
+    const navId = c.req.param('id');
+
+    const nav = db.select().from(cmsNavigation).where(eq(cmsNavigation.id, navId)).get();
+    if (!nav) {
+      return c.json({ success: false, error: 'Nav item not found' }, 404);
+    }
+
+    // Delete children first
+    db.delete(cmsNavigation).where(eq(cmsNavigation.parentId, navId)).run();
+    db.delete(cmsNavigation).where(eq(cmsNavigation.id, navId)).run();
+
+    return c.json({ success: true, data: { message: 'Nav item deleted' } });
+  } catch (error) {
+    console.error('[cms] Delete nav item error:', error);
+    return c.json({ success: false, error: 'Failed to delete nav item' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUT /festival/:festivalId/navigation/reorder — reorder nav items
+// ---------------------------------------------------------------------------
+cmsRoutes.put(
+  '/festival/:festivalId/navigation/reorder',
+  authMiddleware,
+  async (c) => {
+    try {
+      const festivalId = c.req.param('festivalId');
+      const { items } = await c.req.json();
+
+      if (!Array.isArray(items)) {
+        return c.json({ success: false, error: 'items must be an array' }, 400);
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+
+      for (const item of items) {
+        if (!item.id) continue;
+        const updateData: Record<string, unknown> = { updatedAt: now };
+        if (item.sort_order !== undefined) updateData.sortOrder = item.sort_order;
+        if (item.parent_id !== undefined) updateData.parentId = item.parent_id || null;
+
+        db.update(cmsNavigation)
+          .set(updateData)
+          .where(and(eq(cmsNavigation.id, item.id), eq(cmsNavigation.festivalId, festivalId)))
+          .run();
+      }
+
+      return c.json({ success: true, data: { message: 'Navigation reordered' } });
+    } catch (error) {
+      console.error('[cms] Reorder nav error:', error);
+      return c.json({ success: false, error: 'Failed to reorder navigation' }, 500);
+    }
+  },
+);
 
 export { cmsRoutes };

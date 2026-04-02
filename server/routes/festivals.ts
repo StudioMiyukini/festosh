@@ -6,7 +6,18 @@ import { Hono } from 'hono';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
-import { festivals, festivalMembers, editions, profiles } from '../db/schema.js';
+import {
+  festivals,
+  festivalMembers,
+  editions,
+  profiles,
+  boothApplications,
+  events,
+  shifts,
+  shiftAssignments,
+  budgetEntries,
+  cmsPages,
+} from '../db/schema.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole } from '../middleware/festival-auth.js';
 
@@ -189,12 +200,6 @@ festivalRoutes.put(
       const updateData: Record<string, unknown> = { updatedAt: now };
 
       // Whitelist updatable fields
-      const fields = [
-        'name', 'description', 'city', 'country', 'address',
-        'latitude', 'longitude', 'status', 'website', 'contactEmail',
-        'logoUrl', 'bannerUrl', 'themePrimaryColor', 'themeSecondaryColor', 'themeFont',
-      ] as const;
-
       // Map snake_case body keys to camelCase schema keys
       const keyMap: Record<string, string> = {
         name: 'name',
@@ -212,6 +217,11 @@ festivalRoutes.put(
         primary_color: 'themePrimaryColor',
         secondary_color: 'themeSecondaryColor',
         theme_font: 'themeFont',
+        accent_color: 'themeAccentColor',
+        bg_color: 'themeBgColor',
+        text_color: 'themeTextColor',
+        custom_css: 'customCss',
+        header_style: 'headerStyle',
       };
 
       for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
@@ -225,6 +235,9 @@ festivalRoutes.put(
       }
       if (body.social_links !== undefined) {
         updateData.socialLinks = JSON.stringify(body.social_links);
+      }
+      if (body.email_config !== undefined) {
+        updateData.emailConfig = JSON.stringify(body.email_config);
       }
 
       db.update(festivals)
@@ -305,6 +318,35 @@ festivalRoutes.get(
     }
   },
 );
+
+// ---------------------------------------------------------------------------
+// GET /:id/my-role — get current user's role in this festival
+// ---------------------------------------------------------------------------
+festivalRoutes.get('/:id/my-role', authMiddleware, async (c) => {
+  try {
+    const festivalId = c.req.param('id');
+    const userId = c.get('userId');
+
+    const member = db
+      .select()
+      .from(festivalMembers)
+      .where(
+        and(
+          eq(festivalMembers.festivalId, festivalId),
+          eq(festivalMembers.userId, userId),
+        ),
+      )
+      .get();
+
+    return c.json({
+      success: true,
+      data: { role: member?.role ?? null },
+    });
+  } catch (error) {
+    console.error('[festivals] Get my role error:', error);
+    return c.json({ success: false, error: 'Failed to get role' }, 500);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // POST /:id/members — add member
@@ -416,6 +458,172 @@ festivalRoutes.delete(
 );
 
 // ---------------------------------------------------------------------------
+// GET /:id/stats — dashboard statistics
+// ---------------------------------------------------------------------------
+festivalRoutes.get(
+  '/:id/stats',
+  authMiddleware,
+  festivalMemberMiddleware,
+  async (c) => {
+    try {
+      const festivalId = c.req.param('id');
+
+      // Find active edition (or first edition as fallback)
+      const activeEdition = db
+        .select()
+        .from(editions)
+        .where(and(eq(editions.festivalId, festivalId), eq(editions.isActive, 1)))
+        .get();
+
+      const edition = activeEdition || db
+        .select()
+        .from(editions)
+        .where(eq(editions.festivalId, festivalId))
+        .get();
+
+      const editionId = edition?.id;
+
+      // --- Members ---
+      const allMembers = db
+        .select({ role: festivalMembers.role })
+        .from(festivalMembers)
+        .where(eq(festivalMembers.festivalId, festivalId))
+        .all();
+
+      const membersByRole: Record<string, number> = {};
+      for (const m of allMembers) {
+        const role = m.role ?? 'unknown';
+        membersByRole[role] = (membersByRole[role] || 0) + 1;
+      }
+
+      // --- Applications ---
+      let applicationsTotal = 0;
+      let applicationsSubmitted = 0;
+      let applicationsApproved = 0;
+      let applicationsRejected = 0;
+
+      if (editionId) {
+        const allApps = db
+          .select({ status: boothApplications.status })
+          .from(boothApplications)
+          .where(eq(boothApplications.editionId, editionId))
+          .all();
+
+        applicationsTotal = allApps.length;
+        for (const app of allApps) {
+          if (app.status === 'submitted') applicationsSubmitted++;
+          else if (app.status === 'approved') applicationsApproved++;
+          else if (app.status === 'rejected') applicationsRejected++;
+        }
+      }
+
+      // --- Events ---
+      let eventsTotal = 0;
+      if (editionId) {
+        eventsTotal = db
+          .select({ id: events.id })
+          .from(events)
+          .where(eq(events.editionId, editionId))
+          .all().length;
+      }
+
+      // --- Volunteers (shifts + assignments) ---
+      let shiftsTotal = 0;
+      let shiftsFilled = 0;
+      let volunteersCount = 0;
+
+      if (editionId) {
+        shiftsTotal = db
+          .select({ id: shifts.id })
+          .from(shifts)
+          .where(eq(shifts.editionId, editionId))
+          .all().length;
+
+        const allAssignments = db
+          .select({ userId: shiftAssignments.userId, shiftId: shiftAssignments.shiftId })
+          .from(shiftAssignments)
+          .innerJoin(shifts, eq(shifts.id, shiftAssignments.shiftId))
+          .where(eq(shifts.editionId, editionId))
+          .all();
+
+        shiftsFilled = allAssignments.length;
+        const uniqueVolunteers = new Set(allAssignments.map((a) => a.userId));
+        volunteersCount = uniqueVolunteers.size;
+      }
+
+      // --- Budget ---
+      let incomeCents = 0;
+      let expenseCents = 0;
+
+      if (editionId) {
+        const allEntries = db
+          .select({ entryType: budgetEntries.entryType, amountCents: budgetEntries.amountCents })
+          .from(budgetEntries)
+          .where(eq(budgetEntries.editionId, editionId))
+          .all();
+
+        for (const entry of allEntries) {
+          const amount = entry.amountCents ?? 0;
+          if (entry.entryType === 'income') incomeCents += amount;
+          else expenseCents += amount;
+        }
+      }
+
+      // --- CMS Pages ---
+      const allPages = db
+        .select({ isPublished: cmsPages.isPublished })
+        .from(cmsPages)
+        .where(eq(cmsPages.festivalId, festivalId))
+        .all();
+
+      let pagesPublished = 0;
+      let pagesDraft = 0;
+      for (const p of allPages) {
+        if (p.isPublished) pagesPublished++;
+        else pagesDraft++;
+      }
+
+      return c.json({
+        success: true,
+        data: {
+          members: {
+            total: allMembers.length,
+            by_role: membersByRole,
+          },
+          applications: {
+            total: applicationsTotal,
+            submitted: applicationsSubmitted,
+            approved: applicationsApproved,
+            rejected: applicationsRejected,
+          },
+          events: {
+            total: eventsTotal,
+          },
+          volunteers: {
+            shifts_total: shiftsTotal,
+            shifts_filled: shiftsFilled,
+            volunteers_count: volunteersCount,
+          },
+          budget: {
+            income_cents: incomeCents,
+            expense_cents: expenseCents,
+            balance_cents: incomeCents - expenseCents,
+          },
+          cms_pages: {
+            total: allPages.length,
+            published: pagesPublished,
+            draft: pagesDraft,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('[festivals] Stats error:', error);
+      return c.json({ success: false, error: 'Failed to fetch stats' }, 500);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
 function safeParseJson(value: string | null | undefined, fallback: unknown): unknown {
@@ -438,10 +646,14 @@ function formatFestival(f: typeof festivals.$inferSelect) {
     theme_colors: {
       primary: f.themePrimaryColor ?? '#6366f1',
       secondary: f.themeSecondaryColor ?? '#ec4899',
-      accent: '#f59e0b',
-      background: '#ffffff',
-      text: '#111827',
+      accent: f.themeAccentColor ?? '#f59e0b',
+      background: f.themeBgColor ?? '#ffffff',
+      text: f.themeTextColor ?? '#111827',
     },
+    theme_font: f.themeFont ?? 'Inter',
+    custom_css: f.customCss ?? null,
+    header_style: f.headerStyle ?? 'default',
+    email_config: safeParseJson(f.emailConfig, null),
     location_name: f.city,
     location_address: f.address,
     location_lat: f.latitude,

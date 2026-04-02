@@ -8,12 +8,17 @@ import {
   Users,
   DollarSign,
   Package,
+  ClipboardList,
+  MapPin,
   Settings,
+  Palette,
+  Mail,
   Menu,
   X,
   ArrowLeft,
   LogOut,
   User,
+  Ticket,
 } from 'lucide-react';
 import { useFestivalContext } from '@/hooks/use-festival-context';
 import { useFestivalRole } from '@/hooks/use-festival-role';
@@ -25,31 +30,38 @@ interface NavItem {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
+  section?: string;
 }
 
 const getAdminNavItems = (slug: string): NavItem[] => [
   { to: `/f/${slug}/admin`, label: "Vue d'ensemble", icon: LayoutDashboard },
   { to: `/f/${slug}/admin/cms`, label: 'Contenu CMS', icon: FileText },
   { to: `/f/${slug}/admin/programming`, label: 'Programmation', icon: Calendar },
-  { to: `/f/${slug}/admin/exhibitors`, label: 'Exposants', icon: Store },
+  { to: `/f/${slug}/admin/exhibitors`, label: 'Exposants et stands', icon: Store },
   { to: `/f/${slug}/admin/volunteers`, label: 'Benevoles', icon: Users },
   { to: `/f/${slug}/admin/budget`, label: 'Budget', icon: DollarSign },
   { to: `/f/${slug}/admin/equipment`, label: 'Materiel', icon: Package },
-  { to: `/f/${slug}/admin/settings`, label: 'Parametres', icon: Settings },
+  { to: `/f/${slug}/admin/agenda`, label: 'Agenda', icon: Calendar },
+  { to: `/f/${slug}/admin/tasks`, label: 'Taches et reunions', icon: ClipboardList },
+  { to: `/f/${slug}/admin/floor-plan`, label: 'Plan', icon: MapPin },
+  { to: `/f/${slug}/admin/tickets`, label: 'Support', icon: Ticket },
+  { to: `/f/${slug}/admin/settings`, label: 'General', icon: Settings, section: 'Parametres' },
+  { to: `/f/${slug}/admin/settings/theme`, label: 'Theme', icon: Palette, section: 'Parametres' },
+  { to: `/f/${slug}/admin/settings/communication`, label: 'Communication', icon: Mail, section: 'Parametres' },
 ];
 
 export function FestivalAdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { festival, isResolving, error, slug } = useFestivalContext();
-  const { isAdmin, isEditor } = useFestivalRole();
-  const { profile } = useAuthStore();
+  const { isAdmin, isEditor, role: userRole } = useFestivalRole();
+  const { profile, isLoading: isAuthLoading, isAuthenticated } = useAuthStore();
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const navItems = getAdminNavItems(slug);
 
-  if (isResolving) return <LoadingScreen />;
+  if (isResolving || isAuthLoading) return <LoadingScreen />;
 
   if (error) {
     return (
@@ -65,8 +77,11 @@ export function FestivalAdminLayout() {
     );
   }
 
-  // Redirect if user lacks admin/editor role (after festival is loaded)
-  if (!isResolving && festival && !isAdmin && !isEditor) {
+  // Still loading role — authenticated but role not resolved yet
+  if (isAuthenticated && festival && userRole === null) return <LoadingScreen />;
+
+  // Redirect if user lacks admin/editor role (after festival and auth are loaded)
+  if (!isResolving && !isAuthLoading && festival && !isAdmin && !isEditor) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center space-y-4">
@@ -83,7 +98,8 @@ export function FestivalAdminLayout() {
   }
 
   const isActive = (path: string) => {
-    if (path === `/f/${slug}/admin`) {
+    // Exact match for overview and settings root
+    if (path === `/f/${slug}/admin` || path === `/f/${slug}/admin/settings`) {
       return location.pathname === path;
     }
     return location.pathname.startsWith(path);
@@ -114,14 +130,23 @@ export function FestivalAdminLayout() {
       {/* Nav Items */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="flex flex-col gap-1">
-          {navItems.map((item) => {
+          {navItems.map((item, idx) => {
             const Icon = item.icon;
+            const prevItem = navItems[idx - 1];
+            const showSection = item.section && item.section !== prevItem?.section;
             return (
               <li key={item.to}>
+                {showSection && (
+                  <p className="mb-1 mt-4 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    {item.section}
+                  </p>
+                )}
                 <Link
                   to={item.to}
                   onClick={onClose}
                   className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    item.section ? 'pl-5' : ''
+                  } ${
                     isActive(item.to)
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
