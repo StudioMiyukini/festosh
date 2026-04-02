@@ -1,0 +1,97 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1774734473667,
+      "tag": "0000_military_rick_jones",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1774990000000,
+      "tag": "0001_add_user_types_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774991000000,
+      "tag": "0002_add_identity_insurance_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1774992000000,
+      "tag": "0003_add_cms_navigation_and_system_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1774993000000,
+      "tag": "0004_add_equipment_owner_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1774994000000,
+      "tag": "0005_add_booth_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1774995000000,
+      "tag": "0006_add_option_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1774996000000,
+      "tag": "0007_add_tasks_and_meetings",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1774997000000,
+      "tag": "0008_add_theme_and_email_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1774998000000,
+      "tag": "0009_add_email_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1774999000000,
+      "tag": "0010_add_festival_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1775000000000,
+      "tag": "0011_add_auth_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1775001000000,
+      "tag": "0012_add_support_tickets",
+      "breakpoints": true
+    }
+  ]
+}
