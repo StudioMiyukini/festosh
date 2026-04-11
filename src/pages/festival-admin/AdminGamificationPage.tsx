@@ -115,7 +115,7 @@ export function AdminGamificationPage() {
     setStampLoading(true);
     setStampError(null);
     const res = await api.get<StampCard[]>(`/gamification/edition/${activeEdition.id}/stamp-cards`);
-    if (res.success && res.data) setStampCards(res.data);
+    if (res.success && res.data) setStampCards(Array.isArray(res.data) ? res.data : []);
     else setStampError(res.error || 'Erreur de chargement.');
     setStampLoading(false);
   }, [activeEdition]);
@@ -125,7 +125,7 @@ export function AdminGamificationPage() {
     setBadgeLoading(true);
     setBadgeError(null);
     const res = await api.get<Badge[]>(`/gamification/edition/${activeEdition.id}/badges`);
-    if (res.success && res.data) setBadges(res.data);
+    if (res.success && res.data) setBadges(Array.isArray(res.data) ? res.data : []);
     else setBadgeError(res.error || 'Erreur de chargement.');
     setBadgeLoading(false);
   }, [activeEdition]);
@@ -135,7 +135,7 @@ export function AdminGamificationPage() {
     setHuntLoading(true);
     setHuntError(null);
     const res = await api.get<Hunt[]>(`/gamification/edition/${activeEdition.id}/hunts`);
-    if (res.success && res.data) setHunts(res.data);
+    if (res.success && res.data) setHunts(Array.isArray(res.data) ? res.data : []);
     else setHuntError(res.error || 'Erreur de chargement.');
     setHuntLoading(false);
   }, [activeEdition]);
@@ -359,6 +359,7 @@ export function AdminGamificationPage() {
     );
   }
 
+if (!activeEdition) {    return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;  }
   return (
     <div>
       <div className="mb-8">

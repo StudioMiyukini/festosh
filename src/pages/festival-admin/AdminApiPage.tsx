@@ -105,7 +105,7 @@ export function AdminApiPage() {
 
     const res = await api.get<ApiKey[]>(`/api-management/festival/${festival.id}/keys`);
     if (res.success && res.data) {
-      setKeys(res.data);
+      setKeys(Array.isArray(res.data) ? res.data : []);
     } else {
       setKeysError(res.error || 'Impossible de charger les cles API.');
     }
@@ -120,7 +120,7 @@ export function AdminApiPage() {
 
     const res = await api.get<WebhookConfig[]>(`/api-management/festival/${festival.id}/webhooks`);
     if (res.success && res.data) {
-      setWebhooks(res.data);
+      setWebhooks(Array.isArray(res.data) ? res.data : []);
     } else {
       setWebhooksError(res.error || 'Impossible de charger les webhooks.');
     }
@@ -139,7 +139,7 @@ export function AdminApiPage() {
       `/api-management/webhooks/${webhookId}/logs?limit=50`
     );
     if (res.success && res.data) {
-      setLogs(res.data);
+      setLogs(Array.isArray(res.data) ? res.data : []);
     }
     setLogsLoading(false);
   }, []);
@@ -287,6 +287,7 @@ export function AdminApiPage() {
     }
   };
 
+if (!festival) {    return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;  }
   return (
     <div>
       <div className="mb-8">

@@ -15,9 +15,9 @@ import { api, ApiClient } from '@/lib/api-client';
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatTimestamp } from '@/lib/format-utils';
 import {
-  PLATFORM_PLATFORM_ROLE_LABELS,
-  PLATFORM_PLATFORM_ROLE_COLORS,
-  USER_USER_TYPE_LABELS,
+  PLATFORM_ROLE_LABELS,
+  PLATFORM_ROLE_COLORS,
+  USER_TYPE_LABELS,
 } from '@/lib/labels';
 
 interface UserItem {
@@ -76,7 +76,7 @@ export function PlatformAdminUsers() {
     const res = await api.get<UserItem[]>(`/platform-admin/users${qs}`);
 
     if (res.success && res.data) {
-      setUsers(res.data);
+      setUsers(Array.isArray(res.data) ? res.data : []);
       setTotal(res.pagination?.total ?? res.data.length);
     } else {
       setError(res.error || 'Erreur');

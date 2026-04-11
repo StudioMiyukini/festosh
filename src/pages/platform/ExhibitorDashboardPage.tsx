@@ -148,7 +148,7 @@ function DocumentsTab() {
     setError(null);
     const result = await api.get<MyDocument[]>('/exhibitor-hub/my-documents');
     if (result.success && result.data) {
-      setDocuments(result.data);
+      setDocuments(Array.isArray(result.data) ? result.data : []);
     } else {
       setError(result.error || 'Erreur lors du chargement des documents.');
     }
@@ -367,7 +367,7 @@ function ApplicationsTab() {
       setError(null);
       const result = await api.get<MyApplication[]>('/exhibitor-hub/my-applications');
       if (result.success && result.data) {
-        setApplications(result.data);
+        setApplications(Array.isArray(result.data) ? result.data : []);
       } else {
         setError(result.error || 'Erreur lors du chargement des candidatures.');
       }
@@ -465,7 +465,7 @@ function InvoicesTab() {
       setError(null);
       const result = await api.get<MyInvoice[]>('/exhibitor-hub/my-invoices');
       if (result.success && result.data) {
-        setInvoices(result.data);
+        setInvoices(Array.isArray(result.data) ? result.data : []);
       } else {
         setError(result.error || 'Erreur lors du chargement des factures.');
       }

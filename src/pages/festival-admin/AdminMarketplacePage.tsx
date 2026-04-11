@@ -98,7 +98,7 @@ export function AdminMarketplacePage() {
 
     const res = await api.get<Order[]>('/marketplace/seller-orders');
     if (res.success && res.data) {
-      setOrders(res.data);
+      setOrders(Array.isArray(res.data) ? res.data : []);
     } else {
       setErrorOrders(res.error || 'Impossible de charger les commandes.');
     }
@@ -115,7 +115,7 @@ export function AdminMarketplacePage() {
     const qs = ApiClient.queryString({ is_online: 1 });
     const res = await api.get<Product[]>(`/pos/products${qs}`);
     if (res.success && res.data) {
-      setProducts(res.data);
+      setProducts(Array.isArray(res.data) ? res.data : []);
     } else {
       setErrorProducts(res.error || 'Impossible de charger les produits.');
     }
@@ -183,6 +183,7 @@ export function AdminMarketplacePage() {
     );
   }
 
+if (!festival) {    return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;  }
   return (
     <div>
       {/* Header */}

@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Users,
   Tent,
+  Ticket,
   Menu,
   X,
   ArrowLeft,
@@ -24,6 +25,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin', label: 'Tableau de bord', icon: LayoutDashboard },
   { to: '/admin/users', label: 'Utilisateurs', icon: Users },
   { to: '/admin/festivals', label: 'Festivals', icon: Tent },
+  { to: '/admin/tickets', label: 'Tickets support', icon: Ticket },
 ];
 
 export function PlatformAdminLayout() {

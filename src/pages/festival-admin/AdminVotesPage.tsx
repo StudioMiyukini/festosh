@@ -232,6 +232,7 @@ export function AdminVotesPage() {
     );
   }
 
+if (!activeEdition) {    return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;  }
   return (
     <div>
       <div className="mb-8 flex items-center justify-between">

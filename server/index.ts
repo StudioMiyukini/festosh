@@ -49,6 +49,12 @@ import { analyticsRoutes } from './routes/analytics.js';
 import { apiKeyRoutes } from './routes/api-keys.js';
 import { visitorHubRoutes } from './routes/visitor-hub.js';
 import { qrObjectRoutes } from './routes/qr-objects.js';
+import { customRoleRoutes } from './routes/custom-roles.js';
+import { workspaceDocRoutes } from './routes/workspace-docs.js';
+import { workspaceSheetRoutes } from './routes/workspace-sheets.js';
+import { workspaceCalendarRoutes } from './routes/workspace-calendar.js';
+import { workspaceTaskRoutes } from './routes/workspace-tasks.js';
+import { surveyRoutes } from './routes/surveys.js';
 
 // ---------------------------------------------------------------------------
 // Create the Hono app
@@ -73,7 +79,10 @@ const securityHeaders: MiddlewareHandler = async (c, next) => {
   // HSTS — enforce HTTPS (1 year)
   c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   // Content Security Policy
-  c.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'");
+  const isDev = (process.env.NODE_ENV || 'development') !== 'production';
+  const scriptSrc = isDev ? "'self' 'unsafe-inline' 'unsafe-eval'" : "'self'";
+  const connectSrc = isDev ? "'self' ws: wss:" : "'self'";
+  c.header('Content-Security-Policy', `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src ${connectSrc}; frame-ancestors 'none'`);
   // Prevent caching of authenticated responses
   if (c.req.header('Authorization')) {
     c.header('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -184,6 +193,12 @@ app.route('/api/analytics', analyticsRoutes);
 app.route('/api/api-management', apiKeyRoutes);
 app.route('/api/visitor-hub', visitorHubRoutes);
 app.route('/api/qr-objects', qrObjectRoutes);
+app.route('/api/custom-roles', customRoleRoutes);
+app.route('/api/workspace-docs', workspaceDocRoutes);
+app.route('/api/workspace-sheets', workspaceSheetRoutes);
+app.route('/api/workspace-calendar', workspaceCalendarRoutes);
+app.route('/api/workspace-tasks', workspaceTaskRoutes);
+app.route('/api/surveys', surveyRoutes);
 
 // ---------------------------------------------------------------------------
 // 404 fallback

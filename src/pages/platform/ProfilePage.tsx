@@ -62,12 +62,14 @@ export function ProfilePage() {
       setBio(profile.bio ?? '');
       setPhone(profile.phone ?? '');
       setVolunteerBio(profile.volunteer_bio ?? '');
-      setVolunteerSkills(profile.volunteer_skills ?? []);
+      const skills = profile.volunteer_skills;
+      setVolunteerSkills(Array.isArray(skills) ? skills : typeof skills === 'string' ? (() => { try { return JSON.parse(skills); } catch { return []; } })() : []);
       if (profile.exhibitor_profile) {
         setExhibitor(profile.exhibitor_profile);
-        setSocialLinks(profile.exhibitor_profile.social_links ?? []);
+        const sl = profile.exhibitor_profile.social_links;
+        setSocialLinks(Array.isArray(sl) ? sl : typeof sl === 'string' ? (() => { try { return JSON.parse(sl); } catch { return []; } })() : []);
       }
-      if (profile.documents) {
+      if (profile.documents && Array.isArray(profile.documents)) {
         setDocuments(profile.documents);
       }
     }

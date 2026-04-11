@@ -365,10 +365,10 @@ export function AdminTasksMeetingsPage() {
     if (!selectedMeeting) return;
 
     let content: MeetingBlockContent;
-    if (type === 'heading') content = { text: '', level: 2 } as HeadingContent;
-    else if (type === 'text') content = { text: '' } as TextContent;
+    if (type === 'heading') content = { body: '', level: 2 } as HeadingContent;
+    else if (type === 'text') content = { body: '' } as TextContent;
     else if (type === 'checklist') content = { items: [] } as ChecklistContent;
-    else content = { question: '', options: [], allow_multiple: false } as PollContent;
+    else content = { question: '', options: [], multiple: false, closed: false } as PollContent;
 
     try {
       const res = await api.post<MeetingBlock>(`/meetings/${selectedMeeting.id}/blocks`, {
@@ -779,7 +779,7 @@ export function AdminTasksMeetingsPage() {
                       return (
                         <li key={block.id} className="flex items-center gap-2 text-sm">
                           <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                          {content.text || '(sans titre)'}
+                          {content.body || '(sans titre)'}
                         </li>
                       );
                     })}
@@ -1133,8 +1133,8 @@ function MeetingBlockEditor({
       {block.block_type === 'heading' && (
         <input
           type="text"
-          value={(content as HeadingContent).text}
-          onChange={(e) => onUpdate({ ...(content as HeadingContent), text: e.target.value })}
+          value={(content as HeadingContent).body}
+          onChange={(e) => onUpdate({ ...(content as HeadingContent), body: e.target.value })}
           className="w-full border-0 bg-transparent text-lg font-bold focus:outline-none focus:ring-0"
           placeholder="Titre de la section..."
         />
@@ -1143,8 +1143,8 @@ function MeetingBlockEditor({
       {/* Text block */}
       {block.block_type === 'text' && (
         <textarea
-          value={(content as TextContent).text}
-          onChange={(e) => onUpdate({ text: e.target.value })}
+          value={(content as TextContent).body}
+          onChange={(e) => onUpdate({ body: e.target.value })}
           className="w-full border-0 bg-transparent text-sm focus:outline-none focus:ring-0 resize-none"
           rows={3}
           placeholder="Contenu texte..."
@@ -1180,7 +1180,7 @@ function ChecklistEditor({
   onChange: (items: ChecklistItem[]) => void;
 }) {
   const addItem = () => {
-    onChange([...items, { id: uid(), text: '', checked: false }]);
+    onChange([...items, { id: uid(), text: '', status: 'pending' as const }]);
   };
 
   const updateItem = (id: string, changes: Partial<ChecklistItem>) => {
@@ -1197,8 +1197,8 @@ function ChecklistEditor({
         <div key={item.id} className="flex items-center gap-2">
           <input
             type="checkbox"
-            checked={item.checked}
-            onChange={(e) => updateItem(item.id, { checked: e.target.checked })}
+            checked={item.status === 'done'}
+            onChange={(e) => updateItem(item.id, { status: e.target.checked ? 'done' : 'pending' })}
             className="h-4 w-4 rounded border-gray-300"
           />
           <input
@@ -1206,7 +1206,7 @@ function ChecklistEditor({
             value={item.text}
             onChange={(e) => updateItem(item.id, { text: e.target.value })}
             className={`flex-1 border-0 bg-transparent text-sm focus:outline-none focus:ring-0 ${
-              item.checked ? 'line-through text-muted-foreground' : ''
+              item.status === 'done' ? 'line-through text-muted-foreground' : ''
             }`}
             placeholder="Element..."
           />
@@ -1302,8 +1302,8 @@ function PollEditor({
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <input
             type="checkbox"
-            checked={content.allow_multiple}
-            onChange={(e) => onChange({ ...content, allow_multiple: e.target.checked })}
+            checked={content.multiple}
+            onChange={(e) => onChange({ ...content, multiple: e.target.checked })}
             className="h-3 w-3 rounded border-gray-300"
           />
           Choix multiple

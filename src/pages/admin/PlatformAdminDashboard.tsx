@@ -11,9 +11,9 @@ import {
 import { api } from '@/lib/api-client';
 import { formatTimestamp } from '@/lib/format-utils';
 import {
-  PLATFORM_PLATFORM_ROLE_LABELS,
-  FESTIVAL_FESTIVAL_STATUS_LABELS,
-  FESTIVAL_FESTIVAL_STATUS_COLORS,
+  PLATFORM_ROLE_LABELS,
+  FESTIVAL_STATUS_LABELS,
+  FESTIVAL_STATUS_COLORS,
 } from '@/lib/labels';
 
 interface PlatformStats {

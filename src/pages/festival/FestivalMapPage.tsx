@@ -275,7 +275,7 @@ export function FestivalMapPage() {
                   />
                 )}
 
-                {[...elements]
+                {(Array.isArray(elements) ? [...elements] : [])
                   .sort((a, b) => (a.layer ?? 0) - (b.layer ?? 0))
                   .map((el) => {
                     const isBooth = el.type === 'booth';
@@ -291,7 +291,7 @@ export function FestivalMapPage() {
                     }
 
                     // Wall polyline rendering
-                    if (el.type === 'wall' && el.points && el.points.length >= 2) {
+                    if (el.type === 'wall' && Array.isArray(el.points) && el.points.length >= 2) {
                       const pointsStr = el.points.map((p) => `${p.x},${p.y}`).join(' ');
                       return (
                         <polyline

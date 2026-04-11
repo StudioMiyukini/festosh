@@ -266,7 +266,7 @@ function LinkPicker({
   useEffect(() => {
     if (!festival?.id) return;
     api.get<CmsPage[]>(`/cms/festival/${festival.id}/pages`).then((res) => {
-      if (res.success && res.data) setCmsPages(res.data);
+      if (res.success && res.data) setCmsPages(Array.isArray(res.data) ? res.data : []);
       setPagesLoaded(true);
     });
   }, [festival?.id]);

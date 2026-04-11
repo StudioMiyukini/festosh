@@ -6,7 +6,7 @@
 import type { MiddlewareHandler } from 'hono';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { festivalMembers } from '../db/schema.js';
+import { festivalMembers, editions } from '../db/schema.js';
 
 // Role hierarchy from highest to lowest privilege
 const ROLE_HIERARCHY: string[] = [
@@ -38,10 +38,21 @@ export const festivalMemberMiddleware: MiddlewareHandler = async (c, next) => {
   }
 
   // Try multiple param names for flexibility
-  const festivalId =
+  let festivalId =
     c.req.param('festivalId') ||
     c.req.param('festival_id') ||
     c.req.param('id');
+
+  // Auto-resolve from editionId if festivalId not in params
+  if (!festivalId) {
+    const editionId = c.req.param('editionId') || c.req.param('edition_id');
+    if (editionId) {
+      const edition = db.select({ festivalId: editions.festivalId }).from(editions).where(eq(editions.id, editionId)).get();
+      if (edition) {
+        festivalId = edition.festivalId;
+      }
+    }
+  }
 
   if (!festivalId) {
     return c.json({ success: false, error: 'Festival ID is required' }, 400);

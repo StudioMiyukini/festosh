@@ -39,7 +39,7 @@ function safeParseJson(value: string | null | undefined, fallback: unknown): unk
 }
 
 function formatExhibitorProfile(p: typeof exhibitorProfiles.$inferSelect) {
-  return formatResponse(p, ['socialLinks']);
+  return formatResponse(p, ['socialLinks', 'visibility', 'domains']);
 }
 
 function formatBoothLocation(loc: typeof boothLocations.$inferSelect) {

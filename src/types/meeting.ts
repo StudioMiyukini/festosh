@@ -3,14 +3,27 @@
  */
 
 export type MeetingStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
-export type MeetingBlockType = 'heading' | 'text' | 'checklist' | 'poll';
-export type AttendeeStatus = 'invited' | 'confirmed' | 'declined' | 'attended';
+export type MeetingBlockType = 'heading' | 'text' | 'checklist' | 'action' | 'poll' | 'separator' | 'note' | 'decision';
+export type AttendeeStatus = 'invited' | 'accepted' | 'declined';
+export type ChecklistItemStatus = 'pending' | 'done' | 'cancelled';
+export type ActionItemStatus = 'todo' | 'in_progress' | 'done' | 'cancelled';
+export type NoteType = 'info' | 'warning' | 'success';
+export type DecisionStatus = 'proposed' | 'accepted' | 'rejected';
 
 /** A checklist item within a checklist block. */
 export interface ChecklistItem {
   id: string;
   text: string;
-  checked: boolean;
+  status: ChecklistItemStatus;
+}
+
+/** An action item within an action block. */
+export interface ActionItem {
+  id: string;
+  text: string;
+  assignee: string;
+  status: ActionItemStatus;
+  due_date: string;
 }
 
 /** A poll option within a poll block. */
@@ -22,13 +35,13 @@ export interface PollOption {
 
 /** Content shape for heading blocks. */
 export interface HeadingContent {
-  text: string;
+  body: string;
   level: 1 | 2 | 3;
 }
 
 /** Content shape for text blocks. */
 export interface TextContent {
-  text: string;
+  body: string;
 }
 
 /** Content shape for checklist blocks. */
@@ -36,14 +49,45 @@ export interface ChecklistContent {
   items: ChecklistItem[];
 }
 
+/** Content shape for action blocks. */
+export interface ActionContent {
+  items: ActionItem[];
+}
+
 /** Content shape for poll blocks. */
 export interface PollContent {
   question: string;
   options: PollOption[];
-  allow_multiple: boolean;
+  multiple: boolean;
+  closed: boolean;
 }
 
-export type MeetingBlockContent = HeadingContent | TextContent | ChecklistContent | PollContent;
+/** Content shape for separator blocks. */
+export interface SeparatorContent {
+  _type: 'separator';
+}
+
+/** Content shape for note blocks. */
+export interface NoteContent {
+  body: string;
+  note_type: NoteType;
+}
+
+/** Content shape for decision blocks. */
+export interface DecisionContent {
+  body: string;
+  status: DecisionStatus;
+}
+
+export type MeetingBlockContent =
+  | HeadingContent
+  | TextContent
+  | ChecklistContent
+  | ActionContent
+  | PollContent
+  | SeparatorContent
+  | NoteContent
+  | DecisionContent;
 
 export interface MeetingBlock {
   id: string;
@@ -51,6 +95,9 @@ export interface MeetingBlock {
   block_type: MeetingBlockType;
   content: MeetingBlockContent;
   sort_order: number;
+  created_by?: string;
+  updated_by?: string;
+  updated_by_name?: string;
   created_at: number;
   updated_at: number;
 }
@@ -63,6 +110,7 @@ export interface MeetingAttendee {
   created_at: number;
   /** Joined fields (optional) */
   display_name?: string;
+  avatar_url?: string | null;
 }
 
 export interface Meeting {
@@ -74,6 +122,7 @@ export interface Meeting {
   duration_minutes: number;
   location: string | null;
   status: MeetingStatus;
+  version: number;
   created_by: string | null;
   created_at: number;
   updated_at: number;

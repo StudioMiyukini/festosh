@@ -279,7 +279,7 @@ export function ExhibitorDirectoryPage() {
                         {exhibitor.category}
                       </span>
                     )}
-                    {exhibitor.domains && (exhibitor.domains as unknown as string[]).slice(0, 3).map((d) => (
+                    {Array.isArray(exhibitor.domains) && exhibitor.domains.slice(0, 3).map((d: string) => (
                       <span key={d} className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
                         {d}
                       </span>

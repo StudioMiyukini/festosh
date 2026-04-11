@@ -53,6 +53,15 @@ import { AdminQueuesPage } from '@/pages/festival-admin/AdminQueuesPage';
 import { AdminAnalyticsPage } from '@/pages/festival-admin/AdminAnalyticsPage';
 import { AdminApiPage } from '@/pages/festival-admin/AdminApiPage';
 import { AdminQrObjectsPage } from '@/pages/festival-admin/AdminQrObjectsPage';
+import { AdminRolesPage } from '@/pages/festival-admin/AdminRolesPage';
+import { AdminSurveysPage } from '@/pages/festival-admin/AdminSurveysPage';
+import { SurveyFillPage } from '@/pages/festival/SurveyFillPage';
+import { AdminMeetingEditorPage } from '@/pages/festival-admin/AdminMeetingEditorPage';
+import { AdminWorkspacePage } from '@/pages/festival-admin/AdminWorkspacePage';
+import { WorkspaceDocEditorPage } from '@/pages/festival-admin/WorkspaceDocEditorPage';
+import { WorkspaceSheetPage } from '@/pages/festival-admin/WorkspaceSheetPage';
+import { WorkspaceCalendarPage } from '@/pages/festival-admin/WorkspaceCalendarPage';
+import { WorkspaceKanbanPage } from '@/pages/festival-admin/WorkspaceKanbanPage';
 
 // New platform pages
 import { MessagingPage } from '@/pages/platform/MessagingPage';
@@ -72,6 +81,7 @@ import { PlatformAdminLayout } from '@/layouts/PlatformAdminLayout';
 import { PlatformAdminDashboard } from '@/pages/admin/PlatformAdminDashboard';
 import { PlatformAdminUsers } from '@/pages/admin/PlatformAdminUsers';
 import { PlatformAdminFestivals } from '@/pages/admin/PlatformAdminFestivals';
+import { PlatformAdminTickets } from '@/pages/admin/PlatformAdminTickets';
 
 // Not Found
 import { NotFoundPage } from '@/pages/platform/NotFoundPage';
@@ -127,6 +137,7 @@ export const router = createBrowserRouter([
       { path: 'apply', element: <FestivalApplyPage /> },
       // CMS pages catch-all (must be last)
       { path: 'p/:pageSlug', element: <CmsPublicPage /> },
+      { path: 'survey/:surveyId', element: <SurveyFillPage /> },
     ],
   },
 
@@ -159,6 +170,14 @@ export const router = createBrowserRouter([
       { path: 'analytics', element: <AdminAnalyticsPage /> },
       { path: 'api', element: <AdminApiPage /> },
       { path: 'qr-objects', element: <AdminQrObjectsPage /> },
+      { path: 'roles', element: <AdminRolesPage /> },
+      { path: 'surveys', element: <AdminSurveysPage /> },
+      { path: 'meetings/:meetingId', element: <AdminMeetingEditorPage /> },
+      { path: 'workspace', element: <AdminWorkspacePage /> },
+      { path: 'workspace/docs/:docId', element: <WorkspaceDocEditorPage /> },
+      { path: 'workspace/sheets/:sheetId', element: <WorkspaceSheetPage /> },
+      { path: 'workspace/calendar', element: <WorkspaceCalendarPage /> },
+      { path: 'workspace/tasks/:boardId', element: <WorkspaceKanbanPage /> },
       { path: 'settings', element: <AdminSettingsPage /> },
       { path: 'settings/theme', element: <AdminSettingsPage /> },
       { path: 'settings/communication', element: <AdminSettingsPage /> },
@@ -173,6 +192,7 @@ export const router = createBrowserRouter([
       { index: true, element: <PlatformAdminDashboard /> },
       { path: 'users', element: <PlatformAdminUsers /> },
       { path: 'festivals', element: <PlatformAdminFestivals /> },
+      { path: 'tickets', element: <PlatformAdminTickets /> },
     ],
   },
 

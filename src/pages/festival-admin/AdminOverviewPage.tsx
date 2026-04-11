@@ -257,7 +257,7 @@ export function AdminOverviewPage() {
             Repartition des membres
           </h2>
           <div className="flex flex-wrap gap-2">
-            {Object.entries(stats.members.by_role).map(([role, count]) => (
+            {Object.entries(stats?.members?.by_role || {}).map(([role, count]) => (
               <span
                 key={role}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${ROLE_COLORS[role] ?? 'bg-muted text-muted-foreground'}`}

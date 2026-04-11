@@ -8,6 +8,8 @@ import { eq, like, or, and, sql, desc, inArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   profiles,
+  supportTickets,
+  ticketMessages,
   festivals,
   festivalMembers,
   editions,
@@ -438,6 +440,76 @@ platformAdminRoutes.delete('/festivals/:id', async (c) => {
   } catch (error) {
     console.error('[platform-admin] Delete festival error:', error);
     return c.json({ success: false, error: 'Failed to delete festival' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// SUPPORT TICKETS (cross-festival admin view)
+// ---------------------------------------------------------------------------
+
+platformAdminRoutes.get('/tickets', async (c) => {
+  try {
+    const status = c.req.query('status') || '';
+    const priority = c.req.query('priority') || '';
+    const limit = Math.min(safeInt(c.req.query('limit'), 50), 200);
+    const offset = safeInt(c.req.query('offset'), 0);
+
+    const conditions = [];
+    if (status) conditions.push(eq(supportTickets.status, status));
+    if (priority) conditions.push(eq(supportTickets.priority, priority));
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const total = db.select({ count: sql<number>`count(*)` }).from(supportTickets).where(where).get();
+
+    const rows = db.select().from(supportTickets)
+      .where(where)
+      .orderBy(desc(supportTickets.updatedAt))
+      .limit(limit)
+      .offset(offset)
+      .all();
+
+    const data = rows.map((t) => {
+      const formatted = formatResponse(t) as Record<string, unknown>;
+      if (t.userId) {
+        const user = db.select({ displayName: profiles.displayName, username: profiles.username, email: profiles.email })
+          .from(profiles).where(eq(profiles.id, t.userId)).get();
+        formatted.user_name = user?.displayName || user?.username || null;
+        formatted.user_email = user?.email || null;
+      }
+      if (t.assignedTo) {
+        const assignee = db.select({ displayName: profiles.displayName, username: profiles.username })
+          .from(profiles).where(eq(profiles.id, t.assignedTo)).get();
+        formatted.assignee_name = assignee?.displayName || assignee?.username || null;
+      }
+      const msgCount = db.select({ count: sql<number>`count(*)` }).from(ticketMessages)
+        .where(eq(ticketMessages.ticketId, t.id)).get();
+      formatted.message_count = msgCount?.count ?? 0;
+      // Get festival name
+      const fest = db.select({ name: festivals.name, slug: festivals.slug })
+        .from(festivals).where(eq(festivals.id, t.festivalId)).get();
+      formatted.festival_name = fest?.name || null;
+      formatted.festival_slug = fest?.slug || null;
+      return formatted;
+    });
+
+    // Stats
+    const allTickets = db.select({ status: supportTickets.status }).from(supportTickets).all();
+    const statsByStatus: Record<string, number> = {};
+    for (const t of allTickets) { statsByStatus[t.status ?? 'open'] = (statsByStatus[t.status ?? 'open'] || 0) + 1; }
+
+    return c.json({
+      success: true,
+      data,
+      stats: {
+        total: total?.count ?? 0,
+        by_status: statsByStatus,
+      },
+      pagination: { total: total?.count ?? 0, limit, offset },
+    });
+  } catch (error) {
+    console.error('[platform-admin] List tickets error:', error);
+    return c.json({ success: false, error: 'Failed to list tickets' }, 500);
   }
 });
 

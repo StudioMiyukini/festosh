@@ -102,7 +102,7 @@ export function AdminCmsPage() {
 
     const res = await api.get<CmsPage[]>(`/cms/festival/${festival.id}/pages`);
     if (res.success && res.data) {
-      setPages(res.data);
+      setPages(Array.isArray(res.data) ? res.data : []);
     } else {
       setError(res.error || 'Impossible de charger les pages.');
     }
@@ -120,7 +120,7 @@ export function AdminCmsPage() {
 
     const res = await api.get<CmsNavItem[]>(`/cms/festival/${festival.id}/navigation`);
     if (res.success && res.data) {
-      setNavItems(res.data);
+      setNavItems(Array.isArray(res.data) ? res.data : []);
     } else {
       setNavError(res.error || 'Impossible de charger le menu de navigation.');
     }

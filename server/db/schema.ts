@@ -139,6 +139,7 @@ export const festivalMembers = sqliteTable(
       .notNull()
       .references(() => profiles.id),
     role: text('role').default('exhibitor'),
+    customRoleId: text('custom_role_id'),
     invitedBy: text('invited_by').references(() => profiles.id),
     joinedAt: integer('joined_at').$defaultFn(() => Math.floor(Date.now() / 1000)),
   },
@@ -147,6 +148,28 @@ export const festivalMembers = sqliteTable(
     index('festival_members_festival_id_idx').on(table.festivalId),
     index('festival_members_user_id_idx').on(table.userId),
     index('festival_members_role_idx').on(table.role),
+  ],
+);
+
+// ─── Custom Roles ─────────────────────────────────────────────────────────
+export const customRoles = sqliteTable(
+  'custom_roles',
+  {
+    id: id(),
+    festivalId: text('festival_id').notNull().references(() => festivals.id, { onDelete: 'cascade' }),
+    editionId: text('edition_id'),
+    name: text('name').notNull(),
+    description: text('description'),
+    color: text('color').default('#6b7280'),
+    permissions: text('permissions').notNull().default('[]'), // JSON array of permission strings
+    isDefault: integer('is_default').notNull().default(0),
+    sortOrder: integer('sort_order').default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    index('crole_festival_idx').on(table.festivalId),
+    index('crole_edition_idx').on(table.editionId),
   ],
 );
 
@@ -673,12 +696,14 @@ export const meetings = sqliteTable(
     festivalId: text('festival_id')
       .notNull()
       .references(() => festivals.id),
+    editionId: text('edition_id').references(() => editions.id),
     title: text('title').notNull(),
     description: text('description'),
     scheduledAt: integer('scheduled_at'),
     durationMinutes: integer('duration_minutes').default(60),
     location: text('location'),
     status: text('status').default('planned'),
+    version: integer('version').notNull().default(1),
     createdBy: text('created_by').references(() => profiles.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -701,6 +726,7 @@ export const meetingBlocks = sqliteTable(
     blockType: text('block_type').notNull(),
     content: text('content'), // JSON
     sortOrder: integer('sort_order').default(0),
+    updatedBy: text('updated_by').references(() => profiles.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -728,6 +754,19 @@ export const meetingAttendees = sqliteTable(
     index('meeting_attendees_meeting_id_idx').on(table.meetingId),
     index('meeting_attendees_user_id_idx').on(table.userId),
   ],
+);
+
+// ─── Meeting Block History ────────────────────────────────────────────────
+export const meetingBlockHistory = sqliteTable(
+  'meeting_block_history',
+  {
+    id: id(),
+    blockId: text('block_id').notNull().references(() => meetingBlocks.id, { onDelete: 'cascade' }),
+    content: text('content'),
+    updatedBy: text('updated_by').references(() => profiles.id),
+    updatedAt: integer('updated_at').$defaultFn(() => Math.floor(Date.now() / 1000)),
+  },
+  (table) => [index('mbhist_block_idx').on(table.blockId)],
 );
 
 // ─── Tasks ─────────────────────────────────────────────────────────────────
@@ -2026,3 +2065,108 @@ export const auditLogs = sqliteTable('audit_logs', {
   ipAddress: text('ip_address'), userAgent: text('user_agent'),
   details: text('details'), createdAt: createdAt(),
 }, (t) => [index('audit_user_idx').on(t.userId), index('audit_action_idx').on(t.action)]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WORKSPACE: Docs, Sheets, Calendar, Tasks
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const workspaceDocs = sqliteTable('workspace_docs', {
+  id: id(), festivalId: text('festival_id').notNull().references(() => festivals.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default('Sans titre'),
+  content: text('content').notNull().default('[]'), // JSON array of blocks
+  version: integer('version').notNull().default(1),
+  isTemplate: integer('is_template').notNull().default(0),
+  createdBy: text('created_by').notNull().references(() => profiles.id),
+  lastEditedBy: text('last_edited_by').references(() => profiles.id),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('wdoc_festival_idx').on(t.festivalId)]);
+
+export const workspaceSheets = sqliteTable('workspace_sheets', {
+  id: id(), festivalId: text('festival_id').notNull().references(() => festivals.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default('Sans titre'),
+  columnsDef: text('columns_def').notNull().default('[]'), // JSON: [{id, name, type, width}]
+  rowCount: integer('row_count').notNull().default(0),
+  version: integer('version').notNull().default(1),
+  createdBy: text('created_by').notNull().references(() => profiles.id),
+  lastEditedBy: text('last_edited_by').references(() => profiles.id),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('wsheet_festival_idx').on(t.festivalId)]);
+
+export const sheetRows = sqliteTable('sheet_rows', {
+  id: id(), sheetId: text('sheet_id').notNull().references(() => workspaceSheets.id, { onDelete: 'cascade' }),
+  rowIndex: integer('row_index').notNull(),
+  cells: text('cells').notNull().default('{}'), // JSON: { colId: value }
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('srow_sheet_idx').on(t.sheetId)]);
+
+export const sharedCalendars = sqliteTable('shared_calendars', {
+  id: id(), festivalId: text('festival_id').notNull().references(() => festivals.id, { onDelete: 'cascade' }),
+  name: text('name').notNull().default('Calendrier'),
+  color: text('color').default('#6366f1'),
+  isDefault: integer('is_default').notNull().default(0),
+  createdBy: text('created_by').notNull().references(() => profiles.id),
+  createdAt: createdAt(),
+}, (t) => [index('scal_festival_idx').on(t.festivalId)]);
+
+export const calendarEvents = sqliteTable('calendar_events', {
+  id: id(), calendarId: text('calendar_id').notNull().references(() => sharedCalendars.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(), description: text('description'), location: text('location'),
+  startAt: integer('start_at').notNull(), endAt: integer('end_at').notNull(),
+  allDay: integer('all_day').notNull().default(0), color: text('color'),
+  recurrence: text('recurrence'), reminderMinutes: integer('reminder_minutes'),
+  createdBy: text('created_by').notNull().references(() => profiles.id),
+  attendees: text('attendees').default('[]'), // JSON array of user IDs
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('cevt_calendar_idx').on(t.calendarId), index('cevt_start_idx').on(t.startAt)]);
+
+export const taskBoards = sqliteTable('task_boards', {
+  id: id(), festivalId: text('festival_id').notNull().references(() => festivals.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default('Tableau'),
+  version: integer('version').notNull().default(1),
+  createdBy: text('created_by').notNull().references(() => profiles.id),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('tboard_festival_idx').on(t.festivalId)]);
+
+export const taskColumns = sqliteTable('task_columns', {
+  id: id(), boardId: text('board_id').notNull().references(() => taskBoards.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(), color: text('color').default('#6b7280'),
+  sortOrder: integer('sort_order').default(0), wipLimit: integer('wip_limit'),
+}, (t) => [index('tcol_board_idx').on(t.boardId)]);
+
+export const taskCards = sqliteTable('task_cards', {
+  id: id(), columnId: text('column_id').notNull().references(() => taskColumns.id, { onDelete: 'cascade' }),
+  boardId: text('board_id').notNull().references(() => taskBoards.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(), description: text('description'),
+  assigneeId: text('assignee_id').references(() => profiles.id),
+  priority: text('priority').default('medium'), dueAt: integer('due_at'),
+  labels: text('labels').default('[]'), checklist: text('checklist').default('[]'),
+  sortOrder: integer('sort_order').default(0),
+  createdBy: text('created_by').notNull().references(() => profiles.id),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('tcard_column_idx').on(t.columnId), index('tcard_board_idx').on(t.boardId)]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SURVEYS (Form builder like Google Forms)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const surveys = sqliteTable('surveys', {
+  id: id(), festivalId: text('festival_id').notNull().references(() => festivals.id, { onDelete: 'cascade' }),
+  editionId: text('edition_id').references(() => editions.id),
+  title: text('title').notNull().default('Questionnaire de satisfaction'),
+  description: text('description'),
+  blocks: text('blocks').notNull().default('[]'), // JSON array of form blocks
+  isActive: integer('is_active').notNull().default(0),
+  isPublic: integer('is_public').notNull().default(0),
+  responseCount: integer('response_count').notNull().default(0),
+  createdBy: text('created_by').notNull().references(() => profiles.id),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('survey_festival_idx').on(t.festivalId)]);
+
+export const surveyResponses = sqliteTable('survey_responses', {
+  id: id(), surveyId: text('survey_id').notNull().references(() => surveys.id, { onDelete: 'cascade' }),
+  userId: text('user_id').references(() => profiles.id),
+  guestName: text('guest_name'), guestEmail: text('guest_email'),
+  answers: text('answers').notNull().default('{}'), // JSON: { blockId: answer }
+  completed: integer('completed').notNull().default(1),
+  createdAt: createdAt(),
+}, (t) => [index('sresp_survey_idx').on(t.surveyId), index('sresp_user_idx').on(t.userId)]);

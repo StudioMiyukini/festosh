@@ -16,7 +16,7 @@ import {
 import { api, ApiClient } from '@/lib/api-client';
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatTimestamp } from '@/lib/format-utils';
-import { FESTIVAL_FESTIVAL_STATUS_LABELS, FESTIVAL_FESTIVAL_STATUS_COLORS } from '@/lib/labels';
+import { FESTIVAL_STATUS_LABELS, FESTIVAL_STATUS_COLORS } from '@/lib/labels';
 
 interface FestivalItem {
   id: string;
@@ -72,7 +72,7 @@ export function PlatformAdminFestivals() {
     const res = await api.get<FestivalItem[]>(`/platform-admin/festivals${qs}`);
 
     if (res.success && res.data) {
-      setFestivals(res.data);
+      setFestivals(Array.isArray(res.data) ? res.data : []);
       setTotal(res.pagination?.total ?? res.data.length);
     } else {
       setError(res.error || 'Erreur');

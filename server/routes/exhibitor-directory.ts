@@ -64,7 +64,7 @@ exhibitorDirectoryRoutes.get('/directory', optionalAuth, async (c) => {
     }
     if (domain) {
       filtered = filtered.filter((p) => {
-        const domains: string[] = p.domains ? JSON.parse(p.domains as string) : [];
+        let domains: string[] = []; try { domains = p.domains ? JSON.parse(p.domains as string) : []; } catch { /* ignore */ }
         return domains.some((d) => d.toLowerCase() === domain.toLowerCase());
       });
     }
@@ -89,7 +89,7 @@ exhibitorDirectoryRoutes.get('/directory', optionalAuth, async (c) => {
     ];
 
     const items = page.map((p) => {
-      const vis: Record<string, string> = p.visibility ? JSON.parse(p.visibility as string) : {};
+      let vis: Record<string, string> = {}; try { vis = p.visibility ? JSON.parse(p.visibility as string) : {}; } catch { /* ignore */ }
       const result: Record<string, unknown> = {};
 
       for (const [key, value] of Object.entries(p)) {
@@ -144,7 +144,7 @@ exhibitorDirectoryRoutes.get('/my-visibility', authMiddleware, async (c) => {
       success: true,
       data: {
         directory_visible: profile.directoryVisible,
-        visibility: profile.visibility ? JSON.parse(profile.visibility as string) : {},
+        visibility: (() => { try { return profile.visibility ? JSON.parse(profile.visibility as string) : {}; } catch { return {}; } })(),
       },
     });
   } catch (error) {

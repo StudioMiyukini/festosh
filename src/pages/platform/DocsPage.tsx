@@ -14,270 +14,469 @@ import {
   ClipboardList,
   Settings,
   Search,
+  Ticket,
+  ShoppingCart,
+  Handshake,
+  BookMarked,
+  Trophy,
+  Star,
+  Gift,
+  Mic,
+  ListOrdered,
+  BarChart3,
+  Key,
+  QrCode,
+  ShieldCheck,
+  Briefcase,
+  Sparkles,
+  MessageSquare,
+  Heart,
 } from 'lucide-react';
-
-// ─── Tutorial data ─────────────────────────────────────────────────────────
 
 interface DocSection {
   id: string;
   icon: typeof BookOpen;
   title: string;
   description: string;
+  category?: string;
   steps: { title: string; content: string }[];
 }
 
 const TUTORIALS: DocSection[] = [
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PREMIERS PAS
+  // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'getting-started',
     icon: Rocket,
     title: 'Premiers pas',
-    description: 'Creez votre premier festival et configurez-le en quelques minutes.',
+    description: 'Creez votre compte et decouvrez la plateforme.',
+    category: 'Decouverte',
     steps: [
-      {
-        title: 'Creer un compte',
-        content:
-          "Rendez-vous sur la page d'inscription et creez votre compte avec votre email. Vous recevrez un acces immediat a la plateforme.",
-      },
-      {
-        title: 'Creer un festival',
-        content:
-          "Depuis votre Dashboard, cliquez sur \"Creer un festival\". Renseignez le nom, le slug (l'identifiant URL), la ville et une description. Le slug definira l'adresse de votre site : {slug}.miyukini.com.",
-      },
-      {
-        title: 'Creer une edition',
-        content:
-          "Un festival peut avoir plusieurs editions (annuelles par exemple). Allez dans Parametres > Editions et creez votre premiere edition avec les dates de debut et fin. Activez-la pour qu'elle devienne l'edition courante.",
-      },
-      {
-        title: 'Configurer votre equipe',
-        content:
-          "Dans Parametres > Membres, invitez vos collaborateurs et attribuez-leur des roles : admin, editeur, moderateur, benevole ou exposant. Chaque role a des permissions differentes.",
-      },
+      { title: 'Creer un compte', content: "Rendez-vous sur la page d'inscription. Choisissez votre type de profil : visiteur, benevole, exposant ou organisateur. Votre email servira d'identifiant." },
+      { title: 'Completer votre profil', content: "Ajoutez votre nom, photo et informations de contact. Les exposants peuvent completer leur profil professionnel (SIRET, assurances, logo, reseaux sociaux) depuis l'Espace exposant." },
+      { title: 'Explorer la plateforme', content: "La page d'accueil affiche les prochains evenements. L'annuaire des festivals propose une vue liste et une vue carte interactive. L'annuaire des exposants permet de trouver des stands par domaine, ville ou categorie." },
+      { title: 'Naviguer dans les menus', content: "Le menu utilisateur (en haut a droite) donne acces a : Mon profil, Mon espace visiteur, Messagerie, Espace exposant (si exposant/organisateur), et Administration (si admin plateforme)." },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VISITEURS
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'visitor',
+    icon: Sparkles,
+    title: 'Espace visiteur',
+    description: 'XP, pieces, favoris, avis et historique.',
+    category: 'Visiteur',
+    steps: [
+      { title: 'Systeme XP et pieces', content: "Chaque action sur Festosh vous rapporte des points d'experience (XP) et des pieces. Visiter un festival (+100 XP), deposer un avis (+75 XP), faire un achat (+30 XP), scanner un QR code, voter, participer a une tombola... Montez de niveau : Debutant, Curieux, Explorateur, Aventurier, Expert, Veterant, Champion, Legendaire, Mythique, Divin." },
+      { title: 'Festivals visites', content: "L'onglet 'Mes festivals' affiche l'historique de tous les festivals ou votre billet a ete scanne. Pour chaque festival, vous pouvez deposer un avis de satisfaction." },
+      { title: 'Formulaire de satisfaction', content: "Notez chaque festival sur 8 criteres (organisation, programme, stands, ambiance, restauration, accessibilite, rapport qualite-prix) avec des etoiles. Ajoutez un score NPS (0-10), indiquez si vous y retourneriez, et laissez un commentaire." },
+      { title: 'Exposants favoris', content: "Suivez vos exposants preferes en les ajoutant en favoris depuis l'annuaire. L'onglet 'Exposants favoris' montre ou ils seront presents aux prochains festivals." },
+      { title: 'Mes billets', content: "Retrouvez l'historique de tous vos billets achetes avec QR code, statut (valide/utilise) et montant." },
+      { title: 'Historique XP', content: "Consultez le detail de tous vos gains XP et pieces dans l'onglet 'Historique XP'. Les regles de gain sont affichees en bas de page." },
+    ],
+  },
+  {
+    id: 'messaging',
+    icon: MessageSquare,
+    title: 'Messagerie',
+    description: 'Communiquez avec les exposants et organisateurs.',
+    category: 'Visiteur',
+    steps: [
+      { title: 'Envoyer un message', content: "Cliquez sur 'Messagerie' dans le menu utilisateur. Le bouton 'Nouveau message' permet d'envoyer un message a n'importe quel utilisateur en entrant son identifiant." },
+      { title: 'Conversations', content: "Les conversations s'affichent a gauche avec le dernier message et le compteur de non-lus. Cliquez sur une conversation pour voir les messages. L'affichage se rafraichit automatiquement toutes les 10 secondes." },
+      { title: 'Contacter un exposant', content: "Depuis l'annuaire des exposants ou la page d'un festival, cliquez sur 'Contacter' pour ouvrir directement une conversation avec l'exposant." },
+    ],
+  },
+  {
+    id: 'scan',
+    icon: QrCode,
+    title: 'Scanner un QR code',
+    description: "Scannez les QR codes aux festivals pour gagner des recompenses.",
+    category: 'Visiteur',
+    steps: [
+      { title: 'Acceder au scanner', content: "Rendez-vous sur /scan ou cliquez sur le lien de scan fourni par l'organisateur. Le scanner fonctionne sans compte (mais les XP ne sont attribues qu'aux utilisateurs connectes)." },
+      { title: 'Types de QR codes', content: "Les organisateurs peuvent creer differents types : tickets d'entree, tickets boisson/nourriture, trophees a collectionner, points de chasse au tresor, bons/coupons, points tampon. Chaque type a ses propres recompenses en XP et pieces." },
+      { title: 'Resultat du scan', content: "Apres un scan reussi, l'ecran affiche le type d'objet, son nom, et les XP/pieces gagnes. Les tickets consommables (boisson, entree) ne peuvent etre scannes qu'une seule fois." },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EXPOSANTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'exhibitor-profile',
+    icon: Store,
+    title: 'Profil exposant',
+    description: 'Creez votre profil professionnel reutilisable.',
+    category: 'Exposant',
+    steps: [
+      { title: 'Creer son profil', content: "Depuis l'Espace exposant, completez votre profil : nom de societe, activite, description, logo, photo de stand, site web, reseaux sociaux, SIRET, assurances, coordonnees du responsable." },
+      { title: 'Documents', content: "Uploadez vos documents officiels (KBIS, attestation d'assurance, piece d'identite). Definissez une date d'expiration pour recevoir un rappel de renouvellement 30 jours avant." },
+      { title: 'Adresse de facturation', content: "Renseignez votre adresse de facturation separement de l'adresse du siege. Elle sera utilisee pour les factures emises par les festivals." },
+      { title: 'Visibilite', content: "L'onglet 'Visibilite' permet de controler quelles informations sont publiques (visibles par tous) ou reservees aux organisateurs. Vous pouvez aussi masquer votre profil de l'annuaire public." },
+      { title: 'Domaines et PMR', content: "Selectionnez vos domaines d'activite (Auteur, Illustrateur, Artisan, Bijoux, Tatouage, etc.) et indiquez si votre stand est accessible PMR." },
+    ],
+  },
+  {
+    id: 'exhibitor-applications',
+    icon: ClipboardList,
+    title: 'Candidatures exposant',
+    description: 'Candidatez a plusieurs festivals avec un seul profil.',
+    category: 'Exposant',
+    steps: [
+      { title: 'Candidater', content: "Sur la page d'un festival, cliquez sur 'Candidater'. Votre profil exposant est pre-rempli. Indiquez vos preferences : zone, taille de stand, besoins en electricite/eau." },
+      { title: 'Suivi cross-festivals', content: "L'onglet 'Mes candidatures' de l'Espace exposant centralise toutes vos candidatures sur tous les festivals : statut, montant, lien vers l'admin du festival." },
+      { title: 'Factures', content: "L'onglet 'Mes factures' centralise toutes les factures emises par les festivals du reseau Festosh." },
+    ],
+  },
+  {
+    id: 'pos',
+    icon: ShoppingCart,
+    title: 'Caisse et stock (POS)',
+    description: 'Vendez, gerez votre stock et suivez votre comptabilite.',
+    category: 'Exposant',
+    steps: [
+      { title: 'Produits', content: "Creez vos produits avec nom, description, prix, cout d'achat, TVA (0%, 5.5%, 10%, 20%), stock initial et seuil d'alerte. Organisez-les par categories. Activez 'En ligne' pour les proposer sur le marketplace." },
+      { title: 'Caisse (POS)', content: "La page /pos affiche une caisse tactile optimisee pour tablette. Selectionnez les produits, ajustez les quantites, appliquez un code promo, choisissez le mode de paiement (especes, CB, virement) et encaissez. Le stock est decremente automatiquement." },
+      { title: 'Coupons', content: "Creez des codes promo (pourcentage ou montant fixe) avec limites d'utilisation, montant minimum et periode de validite." },
+      { title: 'Comptabilite', content: "La page /pos/accounting affiche le chiffre d'affaires, les charges, le benefice net et l'objectif neutre (break-even). Ajoutez vos depenses (stand, transport, hebergement, materiel...) et l'outil calcule combien il reste a vendre pour etre rentable." },
+      { title: 'Stock', content: "Les alertes de stock bas s'affichent en orange, les ruptures en rouge. Le stock est mis a jour en temps reel a chaque vente." },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ORGANISATEUR — Gestion de base
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'create-festival',
+    icon: Rocket,
+    title: 'Creer un festival',
+    description: 'Configurez votre evenement de A a Z.',
+    category: 'Organisateur',
+    steps: [
+      { title: 'Creer le festival', content: "Depuis le Dashboard, cliquez sur 'Creer un festival'. Renseignez le nom, la ville et le pays. Un slug URL est genere automatiquement. Les coordonnees GPS sont calculees automatiquement depuis l'adresse via OpenStreetMap." },
+      { title: 'Premiere edition', content: "Une premiere edition est creee automatiquement. Configurez ses dates dans Parametres > General. Chaque edition a son propre programme, budget, stands et billetterie." },
+      { title: 'Equipe', content: "Invitez vos collaborateurs et attribuez-leur un role de base (owner, admin, editor, moderator, volunteer, exhibitor). Les owners et admins ont acces a toutes les fonctionnalites." },
+      { title: 'Site public', content: "Votre festival a un sous-site accessible a /f/{slug}. Personnalisez-le avec le CMS, les couleurs et le logo." },
     ],
   },
   {
     id: 'cms',
     icon: FileText,
     title: 'Contenu CMS',
-    description: "Creez et gerez les pages de votre site public avec l'editeur de blocs.",
+    description: "Editeur de pages avec blocs et navigation.",
+    category: 'Organisateur',
     steps: [
-      {
-        title: 'Creer une page',
-        content:
-          "Allez dans Contenu CMS et cliquez sur \"Nouvelle page\". Donnez-lui un titre et un slug. La page sera accessible a l'adresse /p/{slug} sur votre sous-site.",
-      },
-      {
-        title: 'Ajouter des blocs',
-        content:
-          "L'editeur de pages fonctionne par blocs. Ajoutez des blocs de type texte, image, galerie, ou embed. Chaque bloc peut etre reordonne par glisser-deposer.",
-      },
-      {
-        title: 'Publier la page',
-        content:
-          "Une fois satisfait, activez le toggle \"Publiee\" pour rendre la page visible sur votre site public. Vous pouvez aussi la definir comme page d'accueil.",
-      },
-      {
-        title: 'Gerer la navigation',
-        content:
-          "Dans l'onglet Navigation du CMS, ajoutez des liens vers vos pages, des URL externes ou des routes internes. L'ordre est personnalisable.",
-      },
+      { title: 'Creer une page', content: "Allez dans Contenu CMS et cliquez sur 'Nouvelle page'. Donnez-lui un titre et un slug. La page sera accessible a /f/{slug}/p/{page-slug}." },
+      { title: 'Editeur de blocs', content: "Ajoutez des blocs : texte, image, galerie, video, formulaire de contact, FAQ, compteur, HTML personnalise, tableau de prix, etc. Chaque bloc est configurable et reordonnable." },
+      { title: 'Navigation', content: "Gerez le menu de navigation de votre site public : ajoutez des liens vers vos pages, des URL externes, avec support des sous-menus." },
     ],
   },
   {
-    id: 'exhibitors',
+    id: 'exhibitors-admin',
     icon: Store,
-    title: 'Exposants et stands',
-    description: 'Gerez les candidatures, types de stands et emplacements.',
+    title: 'Gestion des exposants',
+    description: 'Candidatures, stands et emplacements.',
+    category: 'Organisateur',
     steps: [
-      {
-        title: 'Creer des types de stands',
-        content:
-          "Avant de creer des emplacements, definissez vos types de stands dans l'onglet Emplacements : nom, dimensions, prix (forfait ou par jour), options electricite/eau avec tarification optionnelle, et equipements disponibles.",
-      },
-      {
-        title: 'Ajouter des emplacements',
-        content:
-          "Creez des emplacements individuels en selectionnant un type (qui pre-remplira les champs). Chaque emplacement a un code unique, une zone, et peut avoir ses propres surcharges de prix et options.",
-      },
-      {
-        title: 'Gerer les candidatures',
-        content:
-          "Les exposants soumettent leurs candidatures via le formulaire public. Vous les retrouvez dans l'onglet Candidatures ou vous pouvez les accepter, refuser, et attribuer un emplacement.",
-      },
-      {
-        title: 'Configurer le materiel des stands',
-        content:
-          "Pensez a creer votre inventaire de materiel (tables, chaises, grilles...) AVANT de configurer les types de stands. Les options d'equipement sont liees a cet inventaire et peuvent etre incluses ou payantes.",
-      },
+      { title: 'Types de stands', content: "Definissez vos types de stands : nom, dimensions, prix (forfait ou par jour), electricite/eau en option, equipements inclus ou payants." },
+      { title: 'Emplacements', content: "Creez des emplacements avec code unique et zone. Associez-les a un type de stand. Placez-les sur le plan de salle." },
+      { title: 'Candidatures', content: "Les exposants candidatent via le formulaire public. Gerez les candidatures : en attente, en revision, approuvee, refusee, liste d'attente. Attribuez un emplacement aux candidatures approuvees." },
     ],
   },
   {
     id: 'programming',
     icon: Calendar,
     title: 'Programmation',
-    description: 'Planifiez votre programme avec evenements, scenes et horaires.',
+    description: 'Evenements, lieux et horaires.',
+    category: 'Organisateur',
     steps: [
-      {
-        title: 'Creer des lieux/scenes',
-        content:
-          "Definissez d'abord vos lieux (scenes, salles, espaces) dans la section Programmation. Chaque lieu a un nom, un type et une capacite.",
-      },
-      {
-        title: 'Ajouter des evenements',
-        content:
-          "Creez vos evenements avec titre, description, categorie, horaires et lieu. Vous pouvez preciser les intervenants et le nombre max de participants.",
-      },
-      {
-        title: 'Organiser par categories',
-        content:
-          "Utilisez les categories (concert, conference, atelier, animation...) pour organiser votre programme. Les visiteurs pourront filtrer par categorie sur le site public.",
-      },
+      { title: 'Lieux', content: "Creez vos lieux (scenes, salles, espaces) avec nom, type et capacite." },
+      { title: 'Evenements', content: "Ajoutez vos evenements avec titre, description, categorie, horaires, lieu, intervenants et capacite max." },
+      { title: 'Categories', content: "Utilisez les categories (concert, conference, atelier, animation...) pour organiser le programme. Les visiteurs filtrent par categorie sur le site public." },
     ],
   },
   {
     id: 'volunteers',
     icon: Users,
     title: 'Benevoles',
-    description: 'Coordonnez vos equipes de benevoles avec roles et shifts.',
+    description: 'Roles, shifts et affectations.',
+    category: 'Organisateur',
     steps: [
-      {
-        title: 'Definir des roles',
-        content:
-          "Creez des roles de benevoles (accueil, securite, logistique, technique...) avec description et couleur pour les identifier facilement.",
-      },
-      {
-        title: 'Planifier des shifts',
-        content:
-          "Creez des creneaux horaires pour chaque role et lieu. Definissez le nombre de benevoles necessaires par shift.",
-      },
-      {
-        title: 'Affecter les benevoles',
-        content:
-          "Les benevoles inscrits peuvent etre affectes aux shifts disponibles. Ils voient leur planning personnel une fois connectes.",
-      },
+      { title: 'Roles', content: "Creez des roles de benevoles (accueil, securite, logistique, technique...) avec description et couleur." },
+      { title: 'Shifts', content: "Planifiez des creneaux horaires pour chaque role et lieu. Definissez le nombre de benevoles necessaires." },
+      { title: 'Affectations', content: "Affectez les benevoles inscrits aux shifts disponibles. Ils voient leur planning personnel une fois connectes." },
     ],
   },
   {
     id: 'budget',
     icon: DollarSign,
     title: 'Budget',
-    description: 'Suivez vos finances avec categories et ecritures.',
+    description: 'Recettes, depenses et justificatifs.',
+    category: 'Organisateur',
     steps: [
-      {
-        title: 'Creer des categories',
-        content:
-          "Definissez vos categories de recettes (billetterie, sponsors, subventions) et depenses (location, materiel, communication). Chaque categorie a une couleur.",
-      },
-      {
-        title: 'Saisir les ecritures',
-        content:
-          "Ajoutez vos recettes et depenses avec montant, date, description et moyen de paiement. Le solde se calcule automatiquement.",
-      },
-      {
-        title: 'Suivre le bilan',
-        content:
-          "Le tableau de bord affiche le total des recettes, depenses et le solde. Vous pouvez filtrer par categorie pour analyser chaque poste.",
-      },
+      { title: 'Categories', content: "Definissez vos categories de recettes (billetterie, sponsors, subventions) et depenses (location, materiel, communication)." },
+      { title: 'Ecritures', content: "Ajoutez vos recettes et depenses avec montant, date, moyen de paiement et notes. Joignez un justificatif (PDF, photo) a chaque ecriture." },
+      { title: 'Suivi', content: "Le tableau de bord affiche le total recettes, depenses et solde en temps reel." },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ORGANISATEUR — Commerce
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'ticketing',
+    icon: Ticket,
+    title: 'Billetterie',
+    description: 'Vente de billets avec QR codes et scan.',
+    category: 'Commerce',
+    steps: [
+      { title: 'Types de billets', content: "Creez des types de billets : nom, prix, quantite totale, max par commande, periode de vente, periode de validite, couleur." },
+      { title: 'Achat', content: "Les visiteurs achetent leurs billets via l'API. Chaque billet genere un QR code unique et une reference de commande." },
+      { title: 'Scan', content: "Le scanner integre permet de valider les billets a l'entree. Scannez le QR code : vert = valide, jaune = deja utilise, rouge = invalide." },
+      { title: 'Statistiques', content: "Suivez les ventes en temps reel : billets vendus, chiffre d'affaires, taux de scan." },
+    ],
+  },
+  {
+    id: 'marketplace',
+    icon: ShoppingCart,
+    title: 'Marketplace',
+    description: 'Boutique en ligne multi-vendeurs.',
+    category: 'Commerce',
+    steps: [
+      { title: 'Produits en ligne', content: "Les exposants activent 'En ligne' sur leurs produits pour les rendre disponibles sur le marketplace du festival." },
+      { title: 'Commandes', content: "Les visiteurs passent commande via la boutique publique. Chaque commande peut contenir des produits de plusieurs exposants." },
+      { title: 'Gestion vendeur', content: "Les exposants voient leurs commandes dans l'onglet Marketplace de l'admin. Ils mettent a jour le statut par article (en attente, confirme, expedie, livre)." },
+    ],
+  },
+  {
+    id: 'sponsors',
+    icon: Handshake,
+    title: 'Sponsors',
+    description: 'Paliers, sponsors et suivi des paiements.',
+    category: 'Commerce',
+    steps: [
+      { title: 'Paliers', content: "Definissez des paliers de sponsoring (Or, Argent, Bronze...) avec prix, avantages (texte libre), couleur et nombre max de sponsors." },
+      { title: 'Sponsors', content: "Ajoutez vos sponsors avec entreprise, logo, contact, montant et palier. Suivez les paiements avec le toggle 'Paye'." },
+      { title: 'Affichage public', content: "Les sponsors actifs s'affichent automatiquement sur le site public, tries par niveau de palier." },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ORGANISATEUR — Experience visiteur
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'reservations',
+    icon: BookMarked,
+    title: 'Reservations',
+    description: 'Creneaux reservables pour ateliers et dedicaces.',
+    category: 'Experience visiteur',
+    steps: [
+      { title: 'Creer des creneaux', content: "Definissez des creneaux reservables avec titre, description, lieu, horaires, capacite et prix optionnel." },
+      { title: 'Reservations', content: "Les visiteurs reservent via le site public. Un QR code est genere pour chaque reservation. La capacite est decrementee automatiquement." },
+    ],
+  },
+  {
+    id: 'gamification',
+    icon: Trophy,
+    title: 'Gamification',
+    description: 'Tampons, badges et chasses au tresor.',
+    category: 'Experience visiteur',
+    steps: [
+      { title: 'Cartes tampons', content: "Creez des cartes tampons : nom, nombre de tampons requis et recompense. Les visiteurs collectent des tampons en scannant les QR codes des stands." },
+      { title: 'Badges', content: "Definissez des badges a debloquer : condition (tampons collectes, events assistes, achats effectues, chasses terminees) et seuil. Les visiteurs les voient dans leur profil." },
+      { title: 'Chasses au tresor', content: "Creez une chasse avec des points de controle. Chaque checkpoint a un nom, un indice et un QR code auto-genere. Les visiteurs scannent les QR codes pour progresser." },
+    ],
+  },
+  {
+    id: 'votes',
+    icon: Star,
+    title: 'Votes et prix du public',
+    description: 'Categories de votes avec classement.',
+    category: 'Experience visiteur',
+    steps: [
+      { title: 'Categories', content: "Creez des categories de votes : nom, periode de vote, nombre max de votes par visiteur." },
+      { title: 'Voter', content: "Les visiteurs votent pour un exposant ou produit avec une note de 1 a 5 etoiles et un commentaire optionnel." },
+      { title: 'Resultats', content: "Les resultats s'affichent en temps reel avec classement par note moyenne. Medailles or/argent/bronze pour le top 3." },
+    ],
+  },
+  {
+    id: 'raffles',
+    icon: Gift,
+    title: 'Tombola',
+    description: 'Lots, participations et tirage au sort.',
+    category: 'Experience visiteur',
+    steps: [
+      { title: 'Creer une tombola', content: "Definissez une tombola avec nom, description et date de tirage. Ajoutez des lots (nom, description, sponsor)." },
+      { title: 'Participations', content: "Les visiteurs participent et recoivent un code unique. Chaque visiteur ne peut participer qu'une fois." },
+      { title: 'Tirage', content: "Cliquez sur 'Tirer au sort' pour selectionner aleatoirement un gagnant par lot. Les resultats s'affichent immediatement." },
+    ],
+  },
+  {
+    id: 'queues',
+    icon: ListOrdered,
+    title: "Files d'attente virtuelles",
+    description: 'Evitez les queues physiques.',
+    category: 'Experience visiteur',
+    steps: [
+      { title: 'Creer une file', content: "Definissez une file d'attente avec nom, lieu et duree moyenne de service." },
+      { title: 'Rejoindre', content: "Les visiteurs prennent un ticket virtuel et recoivent un numero. L'attente estimee est calculee automatiquement." },
+      { title: 'Gerer', content: "Le tableau de bord live montre les personnes en attente. Boutons 'Appeler suivant' et 'Servi' pour gerer le flux. Rafraichissement automatique toutes les 5 secondes." },
+    ],
+  },
+  {
+    id: 'qr-objects',
+    icon: QrCode,
+    title: 'QR Codes universels',
+    description: 'Trophees, tickets, bons — tout en QR code.',
+    category: 'Experience visiteur',
+    steps: [
+      { title: 'Types', content: "8 types : Trophee, Point de chasse, Ticket d'entree, Ticket boisson, Ticket nourriture, Bon/Coupon, Point tampon, Personnalise." },
+      { title: 'Creation unitaire', content: "Creez un QR code avec nom, type, recompenses XP/pieces, limites de scan, periode de validite." },
+      { title: 'Creation en lot', content: "Generez jusqu'a 500 QR codes en une fois (ex: 200 tickets boisson). La liste des codes est copiable pour impression." },
+      { title: 'Scan', content: "La page /scan permet a n'importe qui de scanner un QR code. Feedback visuel immediat : succes avec recompenses ou erreur detaillee." },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ORGANISATEUR — Production
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'artists',
+    icon: Mic,
+    title: 'Artistes et invites',
+    description: 'Fiches artistes, cachets et logistique.',
+    category: 'Production',
+    steps: [
+      { title: 'Fiches artistes', content: "Ajoutez vos artistes/invites avec bio, photo, site web, reseaux sociaux, categorie et role." },
+      { title: 'Logistique', content: "Renseignez les besoins : cachet, rider technique, regime alimentaire, transport, hebergement, dates d'arrivee/depart." },
+      { title: 'Paiements', content: "Suivez le statut de paiement de chaque artiste. Les statistiques montrent le total des cachets, le nombre paye et la repartition par categorie." },
+    ],
+  },
+  {
+    id: 'analytics',
+    icon: BarChart3,
+    title: 'Analytics',
+    description: 'Tableau de bord temps reel.',
+    category: 'Production',
+    steps: [
+      { title: 'Vue d\'ensemble', content: "Le dashboard affiche en temps reel : billets vendus/scannes, chiffre d'affaires total (billetterie + POS + marketplace + sponsors), nombre d'exposants, et engagement (votes, tombola, tampons)." },
+      { title: 'Affluence', content: "Le taux de scan (billets scannes / vendus) indique l'affluence reelle vs les ventes." },
+      { title: 'Revenus', content: "Repartition des revenus par source avec barres visuelles." },
+    ],
+  },
+  {
+    id: 'workspace',
+    icon: Briefcase,
+    title: 'Espace de travail collaboratif',
+    description: 'Documents, tableurs, calendrier et taches.',
+    category: 'Production',
+    steps: [
+      { title: 'Documents', content: "Editeur de documents collaboratif type Notion : blocs paragraphe, titres, listes, citations, code, images. Sauvegarde automatique et synchronisation temps reel entre utilisateurs." },
+      { title: 'Tableurs', content: "Tableurs collaboratifs avec colonnes typees (texte, nombre, date, selection, case a cocher). Edition inline avec sauvegarde automatique sur chaque cellule." },
+      { title: 'Calendrier partage', content: "Calendrier d'equipe avec vue mois et semaine. Creez des evenements avec lieu, horaires, rappels et participants. Filtrez par calendrier (plusieurs calendriers avec couleurs)." },
+      { title: 'Tableaux kanban', content: "Tableaux de taches type Trello : colonnes personnalisables, cartes avec priorite, assignee, date d'echeance, labels et checklists. Deplacement entre colonnes. Limite WIP configurable." },
+      { title: 'Collaboration', content: "Tous les outils se synchronisent automatiquement toutes les 3 secondes. Les modifications des autres utilisateurs apparaissent sans recharger la page." },
+    ],
+  },
+  {
+    id: 'meetings',
+    icon: ClipboardList,
+    title: 'Reunions collaboratives',
+    description: 'Editeur de reunions avec blocs interactifs.',
+    category: 'Production',
+    steps: [
+      { title: 'Creer une reunion', content: "Creez une reunion avec titre, date, duree et lieu. Un ordre du jour avec blocs par defaut est cree automatiquement." },
+      { title: 'Types de blocs', content: "8 types : Texte, Titre (H1/H2/H3), Checklist (items avec statut valide/en cours/annule), Actions (avec assignee et date), Sondage (vote en temps reel), Separateur, Note (info/warning/success), Decision (proposee/acceptee/rejetee)." },
+      { title: 'Edition collaborative', content: "Tous les participants voient les modifications en temps reel (polling 3s). L'historique de chaque bloc est conserve. Le dernier editeur est affiche." },
+      { title: 'Sondages', content: "Les blocs sondage permettent de voter en temps reel. Chaque option affiche le nombre de votes et le pourcentage. Le sondage peut etre ferme." },
+    ],
+  },
+  {
+    id: 'roles',
+    icon: ShieldCheck,
+    title: 'Roles et permissions',
+    description: 'Roles personnalises avec permissions granulaires.',
+    category: 'Production',
+    steps: [
+      { title: 'Roles de base', content: "6 roles de base : Owner (tout), Admin (tout), Editor (contenu), Moderator (moderation), Volunteer (benevole), Exhibitor (exposant). Les owners et admins ont toutes les permissions." },
+      { title: 'Roles personnalises', content: "Creez des roles sur mesure avec 40 permissions groupees en 19 categories : CMS, Programme, Exposants, Benevoles, Budget, Billetterie, Sponsors, Gamification, Votes, Tombola, QR Codes, Artistes, Files d'attente, Reservations, Materiel, Analytics, Marketplace, Parametres, Membres." },
+      { title: 'Assigner', content: "Attribuez un role personnalise a chaque membre de l'equipe en complement de son role de base. Les permissions se cumulent." },
+      { title: 'Scope edition', content: "Un role personnalise peut etre limite a une edition specifique (ou global au festival)." },
+    ],
+  },
+  {
+    id: 'api',
+    icon: Key,
+    title: 'API et webhooks',
+    description: 'Integrez Festosh avec vos outils.',
+    category: 'Production',
+    steps: [
+      { title: 'Cles API', content: "Generez des cles API (prefixe fsk_) pour acceder a l'API Festosh depuis vos outils. La cle complete n'est affichee qu'une seule fois a la creation." },
+      { title: 'Webhooks', content: "Configurez des webhooks pour recevoir des notifications en temps reel : ticket vendu, commande creee, candidature soumise, vote exprime, vente effectuee." },
+      { title: 'Logs', content: "Consultez l'historique des appels webhook : statut HTTP, duree, corps de la reponse." },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PARAMETRES
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'settings',
+    icon: Settings,
+    title: 'Parametres du festival',
+    description: 'Theme, editions, email et communication.',
+    category: 'Parametres',
+    steps: [
+      { title: 'Informations', content: "Modifiez le nom, la description, le logo, la banniere, la ville et l'adresse. Les coordonnees GPS sont mises a jour automatiquement." },
+      { title: 'Theme', content: "Personnalisez les couleurs primaire, secondaire, d'accent, fond et texte. Choisissez la police et le style d'en-tete de votre site public." },
+      { title: 'Communication', content: "Configurez les parametres SMTP pour l'envoi d'emails et les campagnes email aux exposants et participants." },
+      { title: 'Editions', content: "Gerez les editions de votre festival. Chaque edition a ses propres dates, programme, budget, stands et billetterie. Activez l'edition courante." },
     ],
   },
   {
     id: 'equipment',
     icon: Package,
     title: 'Materiel',
-    description: "Gerez l'inventaire et les affectations de materiel.",
+    description: "Inventaire et affectations.",
+    category: 'Parametres',
     steps: [
-      {
-        title: "Creer l'inventaire",
-        content:
-          "Ajoutez vos items de materiel avec nom, categorie (mobilier, technique, signalisation...), quantite, valeur et type d'acquisition (possede, loue, prete).",
-      },
-      {
-        title: 'Gerer les proprietaires',
-        content:
-          "Si du materiel appartient a des tiers, creez des fiches proprietaires avec coordonnees. Associez ensuite chaque item a son proprietaire.",
-      },
-      {
-        title: 'Affecter le materiel',
-        content:
-          "Creez des affectations pour distribuer le materiel aux stands, scenes ou evenements. Suivez les quantites disponibles vs affectees.",
-      },
+      { title: 'Inventaire', content: "Ajoutez vos items avec nom, categorie, quantite, valeur et type d'acquisition (possede, loue, prete)." },
+      { title: 'Proprietaires', content: "Creez des fiches proprietaires avec coordonnees pour le materiel emprunte ou loue." },
+      { title: 'Affectations', content: "Distribuez le materiel aux stands, scenes ou evenements. Suivez les quantites disponibles." },
     ],
   },
   {
     id: 'floor-plan',
     icon: MapPin,
     title: 'Plan du site',
-    description: 'Concevez le plan visuel de votre evenement.',
+    description: 'Plan visuel interactif.',
+    category: 'Parametres',
     steps: [
-      {
-        title: 'Creer un plan',
-        content:
-          "Dans la section Plan, creez un nouveau plan avec nom et dimensions. Vous pouvez importer une image de fond (plan cadastral, photo aerienne...).",
-      },
-      {
-        title: 'Placer les elements',
-        content:
-          "Positionnez vos emplacements de stands, scenes et points d'interet sur le plan. Les elements sont lies aux donnees existantes (emplacements, lieux).",
-      },
-    ],
-  },
-  {
-    id: 'tasks-meetings',
-    icon: ClipboardList,
-    title: 'Taches et reunions',
-    description: "Organisez votre travail d'equipe avec taches et reunions.",
-    steps: [
-      {
-        title: 'Creer des taches',
-        content:
-          "Creez des taches avec titre, description, priorite (basse a urgente), date d'echeance et assignation. Suivez l'avancement avec les statuts : a faire, en cours, termine.",
-      },
-      {
-        title: 'Planifier des reunions',
-        content:
-          "Creez des reunions avec date, duree et lieu. Chaque reunion dispose d'un editeur de blocs pour structurer l'ordre du jour.",
-      },
-      {
-        title: 'Utiliser les blocs de reunion',
-        content:
-          "Ajoutez des blocs titre (ordre du jour), texte (notes), checklist (points a valider) et sondage (votes). Chaque bloc dispose d'un bouton pour creer une tache rapidement.",
-      },
-      {
-        title: 'Vue Agenda',
-        content:
-          "L'onglet Agenda offre une vue calendrier mensuelle qui affiche les reunions et taches avec dates. Cliquez sur un jour pour voir les details.",
-      },
-    ],
-  },
-  {
-    id: 'settings',
-    icon: Settings,
-    title: 'Parametres',
-    description: 'Configurez votre festival : theme, editions, membres.',
-    steps: [
-      {
-        title: 'Informations generales',
-        content:
-          "Modifiez le nom, la description, le logo et la banniere de votre festival. Ces informations apparaissent sur le site public.",
-      },
-      {
-        title: 'Theme et couleurs',
-        content:
-          "Personnalisez les couleurs primaire et secondaire ainsi que la police de votre site public pour correspondre a votre identite visuelle.",
-      },
-      {
-        title: 'Gestion des editions',
-        content:
-          "Creez et gerez les editions de votre festival. Chaque edition a ses propres dates, emplacements, programme et budget. Activez l'edition courante.",
-      },
-      {
-        title: 'Equipe et roles',
-        content:
-          "Ajoutez des membres a votre equipe d'organisation. Les roles disponibles : owner, admin, editor, moderator, volunteer, exhibitor.",
-      },
+      { title: 'Creer un plan', content: "Creez un plan avec nom et dimensions. Importez une image de fond (plan cadastral, photo aerienne)." },
+      { title: 'Elements', content: "Placez vos emplacements de stands, scenes et points d'interet sur le plan. Les elements sont lies aux donnees existantes." },
     ],
   },
 ];
+
+// Group tutorials by category
+function groupByCategory(tutorials: DocSection[]): { category: string; items: DocSection[] }[] {
+  const groups: { category: string; items: DocSection[] }[] = [];
+  const map = new Map<string, DocSection[]>();
+  for (const t of tutorials) {
+    const cat = t.category || 'Autre';
+    const existing = map.get(cat) || [];
+    existing.push(t);
+    map.set(cat, existing);
+  }
+  for (const [category, items] of map.entries()) {
+    groups.push({ category, items });
+  }
+  return groups;
+}
 
 export function DocsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -296,6 +495,8 @@ export function DocsPage() {
       )
     : TUTORIALS;
 
+  const grouped = groupByCategory(filteredTutorials);
+
   return (
     <div>
       {/* Hero */}
@@ -309,10 +510,9 @@ export function DocsPage() {
               Documentation
             </h1>
             <p className="mt-4 text-lg text-muted-foreground">
-              Guides et didacticiels pour tirer le meilleur parti de Festosh.
+              Guides complets pour visiteurs, exposants et organisateurs.
             </p>
 
-            {/* Search */}
             <div className="relative mx-auto mt-8 max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -333,35 +533,43 @@ export function DocsPage() {
           <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
             {/* Sidebar nav */}
             <aside className="hidden lg:block">
-              <nav className="sticky top-20 space-y-1">
-                <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Didacticiels</p>
-                {TUTORIALS.map((t) => {
-                  const Icon = t.icon;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        setExpandedSection(t.id);
-                        setSearchQuery('');
-                        document.getElementById(`doc-${t.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }}
-                      className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                        expandedSection === t.id
-                          ? 'bg-primary/10 text-primary font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                      {t.title}
-                    </button>
-                  );
-                })}
+              <nav className="sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto pr-2">
+                {grouped.map((group) => (
+                  <div key={group.category}>
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      {group.category}
+                    </p>
+                    <div className="space-y-0.5">
+                      {group.items.map((t) => {
+                        const Icon = t.icon;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              setExpandedSection(t.id);
+                              setSearchQuery('');
+                              document.getElementById(`doc-${t.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }}
+                            className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors ${
+                              expandedSection === t.id
+                                ? 'bg-primary/10 text-primary font-medium'
+                                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                            {t.title}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </nav>
             </aside>
 
             {/* Main content */}
-            <div className="space-y-8">
+            <div className="space-y-6">
               {filteredTutorials.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-12 text-center">
                   <Search className="mx-auto h-8 w-8 text-muted-foreground" />
@@ -370,66 +578,73 @@ export function DocsPage() {
                   </p>
                 </div>
               ) : (
-                filteredTutorials.map((section) => {
-                  const Icon = section.icon;
-                  const isExpanded = expandedSection === section.id || searchQuery.trim() !== '';
+                grouped.map((group) => (
+                  <div key={group.category}>
+                    <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      {group.category}
+                    </h2>
+                    <div className="space-y-3">
+                      {group.items.map((section) => {
+                        const Icon = section.icon;
+                        const isExpanded = expandedSection === section.id || searchQuery.trim() !== '';
 
-                  return (
-                    <div
-                      key={section.id}
-                      id={`doc-${section.id}`}
-                      className="scroll-mt-20 rounded-lg border bg-card"
-                    >
-                      {/* Section header */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedSection(isExpanded && !searchQuery ? null : section.id)
-                        }
-                        className="flex w-full items-center gap-4 p-5 text-left"
-                      >
-                        <div className="rounded-lg bg-primary/10 p-2.5">
-                          <Icon className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <h2 className="text-lg font-semibold text-foreground">{section.title}</h2>
-                          <p className="mt-0.5 text-sm text-muted-foreground">{section.description}</p>
-                        </div>
-                        <ChevronRight
-                          className={`h-5 w-5 text-muted-foreground transition-transform ${
-                            isExpanded ? 'rotate-90' : ''
-                          }`}
-                        />
-                      </button>
+                        return (
+                          <div
+                            key={section.id}
+                            id={`doc-${section.id}`}
+                            className="scroll-mt-20 rounded-lg border bg-card"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedSection(isExpanded && !searchQuery ? null : section.id)
+                              }
+                              className="flex w-full items-center gap-4 p-4 text-left"
+                            >
+                              <div className="rounded-lg bg-primary/10 p-2">
+                                <Icon className="h-4 w-4 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+                                <p className="mt-0.5 text-xs text-muted-foreground">{section.description}</p>
+                              </div>
+                              <ChevronRight
+                                className={`h-4 w-4 text-muted-foreground transition-transform ${
+                                  isExpanded ? 'rotate-90' : ''
+                                }`}
+                              />
+                            </button>
 
-                      {/* Steps */}
-                      {isExpanded && (
-                        <div className="border-t px-5 py-4">
-                          <div className="space-y-6">
-                            {section.steps.map((step, idx) => (
-                              <div key={idx} className="flex gap-4">
-                                <div className="flex flex-col items-center">
-                                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                                    {idx + 1}
-                                  </div>
-                                  {idx < section.steps.length - 1 && (
-                                    <div className="mt-1 w-px flex-1 bg-border" />
-                                  )}
-                                </div>
-                                <div className="pb-4">
-                                  <h3 className="font-medium text-foreground">{step.title}</h3>
-                                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                                    {step.content}
-                                  </p>
+                            {isExpanded && (
+                              <div className="border-t px-4 py-3">
+                                <div className="space-y-4">
+                                  {section.steps.map((step, idx) => (
+                                    <div key={idx} className="flex gap-3">
+                                      <div className="flex flex-col items-center">
+                                        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                                          {idx + 1}
+                                        </div>
+                                        {idx < section.steps.length - 1 && (
+                                          <div className="mt-1 w-px flex-1 bg-border" />
+                                        )}
+                                      </div>
+                                      <div className="pb-3">
+                                        <h4 className="text-sm font-medium text-foreground">{step.title}</h4>
+                                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                                          {step.content}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            ))}
+                            )}
                           </div>
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
-                  );
-                })
+                  </div>
+                ))
               )}
             </div>
           </div>
@@ -441,14 +656,14 @@ export function DocsPage() {
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-xl font-bold text-foreground">Besoin d'aide ?</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Si vous avez des questions ou besoin d'assistance, n'hesitez pas a nous contacter.
+            Si vous avez des questions, utilisez la messagerie integree ou contactez-nous.
           </p>
           <div className="mt-6 flex justify-center gap-4">
             <Link
               to="/about"
               className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
             >
-              A propos de Festosh
+              A propos
             </Link>
             <Link
               to="/signup"

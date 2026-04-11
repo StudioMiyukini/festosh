@@ -30,6 +30,9 @@ import {
   BarChart3,
   Key,
   QrCode,
+  ShieldCheck,
+  Briefcase,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useFestivalContext } from '@/hooks/use-festival-context';
 import { useFestivalRole } from '@/hooks/use-festival-role';
@@ -64,10 +67,13 @@ const getAdminNavItems = (slug: string): NavItem[] => [
   { to: `/f/${slug}/admin/votes`, label: 'Votes', icon: Star, section: 'Visiteurs' },
   { to: `/f/${slug}/admin/raffles`, label: 'Tombola', icon: Gift, section: 'Visiteurs' },
   { to: `/f/${slug}/admin/queues`, label: 'Files d\'attente', icon: ListOrdered, section: 'Visiteurs' },
+  { to: `/f/${slug}/admin/surveys`, label: 'Questionnaires', icon: ClipboardCheck, section: 'Visiteurs' },
   { to: `/f/${slug}/admin/artists`, label: 'Artistes', icon: Mic, section: 'Production' },
   { to: `/f/${slug}/admin/analytics`, label: 'Analytics', icon: BarChart3, section: 'Production' },
+  { to: `/f/${slug}/admin/workspace`, label: 'Espace de travail', icon: Briefcase, section: 'Production' },
   { to: `/f/${slug}/admin/qr-objects`, label: 'QR Codes', icon: QrCode, section: 'Production' },
   { to: `/f/${slug}/admin/api`, label: 'API & Webhooks', icon: Key, section: 'Production' },
+  { to: `/f/${slug}/admin/roles`, label: 'Roles & permissions', icon: ShieldCheck, section: 'Parametres' },
   { to: `/f/${slug}/admin/settings`, label: 'General', icon: Settings, section: 'Parametres' },
   { to: `/f/${slug}/admin/settings/theme`, label: 'Theme', icon: Palette, section: 'Parametres' },
   { to: `/f/${slug}/admin/settings/communication`, label: 'Communication', icon: Mail, section: 'Parametres' },

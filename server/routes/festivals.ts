@@ -6,6 +6,7 @@ import { Hono } from 'hono';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
+import { geocodeAddress, buildGeoQuery } from '../lib/geocode.js';
 import {
   festivals,
   festivalMembers,
@@ -114,6 +115,20 @@ festivalRoutes.post('/', authMiddleware, requireRole(['organizer', 'admin']), as
         updatedAt: now,
       })
       .run();
+
+    // Geocode city/country in background
+    const geoQuery = buildGeoQuery({ city, country });
+    if (geoQuery) {
+      geocodeAddress(geoQuery, country).then((coords) => {
+        if (coords) {
+          db.update(festivals)
+            .set({ latitude: coords.lat, longitude: coords.lng })
+            .where(eq(festivals.id, festivalId))
+            .run();
+          console.log(`[geocode] ${name}: ${coords.lat}, ${coords.lng}`);
+        }
+      }).catch(() => {});
+    }
 
     // Create first edition
     db.insert(editions)
@@ -244,6 +259,27 @@ festivalRoutes.put(
         .set(updateData)
         .where(eq(festivals.id, festivalId))
         .run();
+
+      // Auto-geocode if city/address/country changed and no manual lat/lng provided
+      if ((body.city || body.address || body.country) && body.latitude === undefined) {
+        const current = db.select().from(festivals).where(eq(festivals.id, festivalId)).get();
+        const geoQuery = buildGeoQuery({
+          address: body.address ?? current?.address,
+          city: body.city ?? current?.city,
+          country: body.country ?? current?.country,
+        });
+        if (geoQuery) {
+          geocodeAddress(geoQuery, body.country ?? current?.country).then((coords) => {
+            if (coords) {
+              db.update(festivals)
+                .set({ latitude: coords.lat, longitude: coords.lng })
+                .where(eq(festivals.id, festivalId))
+                .run();
+              console.log(`[geocode] Updated ${festivalId}: ${coords.lat}, ${coords.lng}`);
+            }
+          }).catch(() => {});
+        }
+      }
 
       const updated = db
         .select()
@@ -670,5 +706,39 @@ function formatFestival(f: typeof festivals.$inferSelect) {
     updated_at: f.updatedAt,
   };
 }
+
+// ---------------------------------------------------------------------------
+// POST /geocode-all — batch geocode festivals without coordinates (admin)
+// ---------------------------------------------------------------------------
+festivalRoutes.post('/geocode-all', authMiddleware, requireRole(['admin']), async (c) => {
+  try {
+    const allFestivals = db.select().from(festivals).all();
+    const toGeocode = allFestivals.filter((f) => !f.latitude && (f.city || f.address));
+
+    let geocoded = 0;
+    for (const festival of toGeocode) {
+      const query = buildGeoQuery({ address: festival.address, city: festival.city, country: festival.country });
+      if (!query) continue;
+
+      const coords = await geocodeAddress(query, festival.country ?? undefined);
+      if (coords) {
+        db.update(festivals)
+          .set({ latitude: coords.lat, longitude: coords.lng })
+          .where(eq(festivals.id, festival.id))
+          .run();
+        geocoded++;
+        console.log(`[geocode] ${festival.name}: ${coords.lat}, ${coords.lng}`);
+      }
+    }
+
+    return c.json({
+      success: true,
+      data: { total: toGeocode.length, geocoded, skipped: toGeocode.length - geocoded },
+    });
+  } catch (error) {
+    console.error('[festivals] Geocode all error:', error);
+    return c.json({ success: false, error: 'Failed to geocode festivals' }, 500);
+  }
+});
 
 export { festivalRoutes };

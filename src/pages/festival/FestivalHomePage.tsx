@@ -61,7 +61,7 @@ export function FestivalHomePage() {
     );
   }
 
-  const sortedBlocks = [...page.blocks]
+  const sortedBlocks = (Array.isArray(page?.blocks) ? [...page.blocks] : [])
     .filter((b) => b.is_visible !== false)
     .sort((a, b) => a.sort_order - b.sort_order);
 
