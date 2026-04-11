@@ -7,7 +7,8 @@ import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
-import { db } from '../db/index.js';
+import { db, sqlite } from '../db/index.js';
+import { logAudit } from '../lib/audit.js';
 import { profiles, exhibitorProfiles, documents, passwordResetTokens, tokenBlacklist } from '../db/schema.js';
 import {
   authMiddleware,
@@ -37,7 +38,7 @@ const userTypeEnum = z.enum(['visitor', 'volunteer', 'exhibitor', 'organizer']);
 const registerSchema = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/, 'Username may only contain letters, numbers, hyphens, and underscores'),
   email: z.string().email('Invalid email format').max(255),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  password: z.string().min(10, 'Le mot de passe doit contenir au moins 10 caracteres').max(128).regex(/[A-Z]/, 'Doit contenir une majuscule').regex(/[a-z]/, 'Doit contenir une minuscule').regex(/[0-9]/, 'Doit contenir un chiffre'),
   user_type: userTypeEnum.default('visitor'),
   // Identity fields (exhibitor/organizer)
   first_name: z.string().max(100).optional(),
@@ -69,7 +70,7 @@ const loginSchema = z.object({
 
 const changePasswordSchema = z.object({
   old_password: z.string().min(1).max(128),
-  new_password: z.string().min(8, 'New password must be at least 8 characters').max(128),
+  new_password: z.string().min(10, 'Le mot de passe doit contenir au moins 10 caracteres').max(128).regex(/[A-Z]/, 'Doit contenir une majuscule').regex(/[a-z]/, 'Doit contenir une minuscule').regex(/[0-9]/, 'Doit contenir un chiffre'),
 });
 
 const updateProfileSchema = z.object({
@@ -132,7 +133,7 @@ authRoutes.post('/register', registerLimiter, async (c) => {
       .get();
 
     if (existingEmail) {
-      return c.json({ success: false, error: 'Email already in use' }, 409);
+      return c.json({ success: false, error: 'An account with these details already exists' }, 409);
     }
 
     // Check for existing username
@@ -143,7 +144,7 @@ authRoutes.post('/register', registerLimiter, async (c) => {
       .get();
 
     if (existingUsername) {
-      return c.json({ success: false, error: 'Username already taken' }, 409);
+      return c.json({ success: false, error: 'An account with these details already exists' }, 409);
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -242,6 +243,7 @@ authRoutes.post('/register', registerLimiter, async (c) => {
     }
 
     const token = generateToken(id, platformRole);
+    logAudit(c, 'user_registered', 'profile', id);
 
     return c.json({
       success: true,
@@ -299,6 +301,7 @@ authRoutes.post('/login', authLimiter, async (c) => {
     }
 
     const token = generateToken(user.id, user.platformRole ?? 'user');
+    logAudit(c, 'user_login', 'profile', user.id);
 
     return c.json({
       success: true,
@@ -721,18 +724,23 @@ authRoutes.post('/reset-password', async (c) => {
       return c.json({ success: false, error: 'Reset token has already been used' }, 400);
     }
 
-    // Update user's password
+    // Atomic: update password + mark token used in one transaction
     const newHash = await hashPassword(new_password);
-    db.update(profiles)
-      .set({ passwordHash: newHash, updatedAt: now })
-      .where(eq(profiles.id, resetToken.userId))
-      .run();
+    sqlite.transaction(() => {
+      // Re-check token not used (prevents race condition)
+      const freshToken = db.select().from(passwordResetTokens).where(eq(passwordResetTokens.id, resetToken.id)).get();
+      if (freshToken?.usedAt) throw new Error('Token already used');
 
-    // Mark token as used
-    db.update(passwordResetTokens)
-      .set({ usedAt: now })
-      .where(eq(passwordResetTokens.id, resetToken.id))
-      .run();
+      db.update(profiles)
+        .set({ passwordHash: newHash, updatedAt: now })
+        .where(eq(profiles.id, resetToken.userId))
+        .run();
+
+      db.update(passwordResetTokens)
+        .set({ usedAt: now })
+        .where(eq(passwordResetTokens.id, resetToken.id))
+        .run();
+    })();
 
     return c.json({ success: true, data: { message: 'Password reset successfully' } });
   } catch (error) {
@@ -744,7 +752,7 @@ authRoutes.post('/reset-password', async (c) => {
 // ---------------------------------------------------------------------------
 // POST /verify-email
 // ---------------------------------------------------------------------------
-authRoutes.post('/verify-email', async (c) => {
+authRoutes.post('/verify-email', rateLimit({ windowMs: 15 * 60 * 1000, max: 10 }), async (c) => {
   try {
     const body = await c.req.json();
     const { token } = body;

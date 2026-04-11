@@ -5,6 +5,9 @@
 import { Hono } from 'hono';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
+import { mkdirSync } from 'fs';
+import { writeFile } from 'fs/promises';
+import { resolve, extname, join } from 'path';
 import { db } from '../db/index.js';
 import {
   exhibitorProfiles,
@@ -17,6 +20,12 @@ import {
 import { authMiddleware } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole, hasMinRole } from '../middleware/festival-auth.js';
 import { formatResponse } from '../lib/format.js';
+import { validateFileContent } from '../lib/file-validation.js';
+
+const EXHIBITOR_UPLOADS_DIR = resolve(process.cwd(), 'data', 'uploads', 'exhibitors');
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+mkdirSync(EXHIBITOR_UPLOADS_DIR, { recursive: true });
 
 const exhibitorRoutes = new Hono();
 
@@ -111,6 +120,19 @@ exhibitorRoutes.post('/profile', authMiddleware, async (c) => {
         postal_code: 'postalCode',
         city: 'city',
         country: 'country',
+        registration_number: 'registrationNumber',
+        insurer_name: 'insurerName',
+        insurance_contract_number: 'insuranceContractNumber',
+        insurance_expires_at: 'insuranceExpiresAt',
+        kbis_file_url: 'kbisFileUrl',
+        insurance_file_url: 'insuranceFileUrl',
+        id_file_url: 'idFileUrl',
+        billing_address_line1: 'billingAddressLine1',
+        billing_address_line2: 'billingAddressLine2',
+        billing_postal_code: 'billingPostalCode',
+        billing_city: 'billingCity',
+        billing_country: 'billingCountry',
+        is_pmr: 'isPmr',
       };
 
       for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
@@ -121,6 +143,9 @@ exhibitorRoutes.post('/profile', authMiddleware, async (c) => {
 
       if (body.social_links !== undefined) {
         updateData.socialLinks = JSON.stringify(body.social_links);
+      }
+      if (body.domains !== undefined) {
+        updateData.domains = JSON.stringify(body.domains);
       }
 
       db.update(exhibitorProfiles)
@@ -164,6 +189,20 @@ exhibitorRoutes.post('/profile', authMiddleware, async (c) => {
           postalCode: body.postal_code || null,
           city: body.city || null,
           country: body.country || 'FR',
+          registrationNumber: body.registration_number || null,
+          insurerName: body.insurer_name || null,
+          insuranceContractNumber: body.insurance_contract_number || null,
+          insuranceExpiresAt: body.insurance_expires_at || null,
+          kbisFileUrl: body.kbis_file_url || null,
+          insuranceFileUrl: body.insurance_file_url || null,
+          idFileUrl: body.id_file_url || null,
+          billingAddressLine1: body.billing_address_line1 || null,
+          billingAddressLine2: body.billing_address_line2 || null,
+          billingPostalCode: body.billing_postal_code || null,
+          billingCity: body.billing_city || null,
+          billingCountry: body.billing_country || 'FR',
+          isPmr: body.is_pmr ? 1 : 0,
+          domains: JSON.stringify(body.domains || []),
           createdAt: now,
           updatedAt: now,
         })
@@ -820,6 +859,113 @@ exhibitorRoutes.put('/applications/:id/assign-booth', authMiddleware, async (c) 
   } catch (error) {
     console.error('[exhibitors] Assign booth error:', error);
     return c.json({ success: false, error: 'Failed to assign booth' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /profile/upload-image — upload logo or booth photo
+// ---------------------------------------------------------------------------
+exhibitorRoutes.post('/profile/upload-image', authMiddleware, async (c) => {
+  try {
+    const userId = c.get('userId');
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    const type = body['type'] as string; // 'logo' | 'photo'
+
+    if (!file || !(file instanceof File)) {
+      return c.json({ success: false, error: 'No file provided' }, 400);
+    }
+
+    if (!['logo', 'photo'].includes(type)) {
+      return c.json({ success: false, error: 'type must be "logo" or "photo"' }, 400);
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return c.json({ success: false, error: 'Format non autorise. Acceptes : JPEG, PNG, WebP' }, 400);
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      return c.json({ success: false, error: 'Image trop volumineuse (max 5 Mo)' }, 400);
+    }
+
+    const profile = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.userId, userId)).get();
+    if (!profile) {
+      return c.json({ success: false, error: 'Exhibitor profile not found. Create your profile first.' }, 404);
+    }
+
+    const ext = extname(file.name) || '.jpg';
+    const filename = `${type}-${crypto.randomUUID()}${ext}`;
+    const filepath = join(EXHIBITOR_UPLOADS_DIR, filename);
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (!validateFileContent(buffer, file.type)) {
+      return c.json({ success: false, error: 'File content does not match declared type' }, 400);
+    }
+    await writeFile(filepath, buffer);
+
+    const imageUrl = `/api/exhibitors/images/${filename}`;
+
+    // Update profile
+    const field = type === 'logo' ? 'logoUrl' : 'photoUrl';
+    db.update(exhibitorProfiles)
+      .set({ [field]: imageUrl, updatedAt: Math.floor(Date.now() / 1000) })
+      .where(eq(exhibitorProfiles.userId, userId))
+      .run();
+
+    return c.json({ success: true, data: { url: imageUrl, type } }, 201);
+  } catch (error) {
+    console.error('[exhibitors] Upload image error:', error);
+    return c.json({ success: false, error: 'Failed to upload image' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /images/:filename — serve exhibitor images
+// ---------------------------------------------------------------------------
+exhibitorRoutes.get('/images/:filename', async (c) => {
+  try {
+    const filename = c.req.param('filename');
+
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return c.json({ success: false, error: 'Invalid filename' }, 400);
+    }
+
+    const filepath = join(EXHIBITOR_UPLOADS_DIR, filename);
+    const { stat } = await import('fs/promises');
+    const { createReadStream } = await import('fs');
+
+    let fileSize: number;
+    try {
+      fileSize = (await stat(filepath)).size;
+    } catch {
+      return c.json({ success: false, error: 'Image not found' }, 404);
+    }
+
+    const ext = extname(filename).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.png': 'image/png', '.webp': 'image/webp',
+    };
+
+    const stream = createReadStream(filepath);
+    const readable = new ReadableStream({
+      start(controller) {
+        stream.on('data', (chunk) => controller.enqueue(chunk));
+        stream.on('end', () => controller.close());
+        stream.on('error', (err) => controller.error(err));
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': mimeMap[ext] || 'application/octet-stream',
+        'Content-Length': String(fileSize),
+        'Cache-Control': 'public, max-age=604800',
+      },
+    });
+  } catch (error) {
+    console.error('[exhibitors] Serve image error:', error);
+    return c.json({ success: false, error: 'Failed to serve image' }, 500);
   }
 });
 

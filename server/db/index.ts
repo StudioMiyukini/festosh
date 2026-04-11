@@ -1,8 +1,7 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { existsSync, mkdirSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
+import { dirname, resolve, join } from 'path';
 import * as schema from './schema';
 
 const DB_PATH = resolve(process.cwd(), 'data', 'festosh.db');
@@ -25,13 +24,48 @@ sqlite.pragma('auto_vacuum = INCREMENTAL');// Reclaim space from deleted records
 export const db = drizzle(sqlite, { schema });
 
 /**
- * Run pending Drizzle migrations.
- * Call this once at server startup before handling requests.
+ * Run pending migrations from the Drizzle journal.
+ * Uses sqlite.exec() which natively handles multi-statement SQL.
  */
 export function initializeDatabase(): void {
   const migrationsFolder = resolve(import.meta.dirname ?? __dirname, 'migrations');
   console.log(`[db] Running migrations from ${migrationsFolder}`);
-  migrate(db, { migrationsFolder });
+
+  sqlite.exec(`CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    hash text NOT NULL,
+    created_at numeric
+  )`);
+
+  const journalPath = join(migrationsFolder, 'meta', '_journal.json');
+  if (!existsSync(journalPath)) {
+    console.log('[db] No migration journal found, skipping');
+    return;
+  }
+
+  const journal = JSON.parse(readFileSync(journalPath, 'utf-8'));
+  const entries: { idx: number; tag: string; when: number }[] = journal.entries;
+
+  const applied = new Set(
+    sqlite.prepare('SELECT hash FROM "__drizzle_migrations"').all()
+      .map((row: any) => row.hash)
+  );
+
+  for (const entry of entries) {
+    if (applied.has(entry.tag)) continue;
+
+    const sqlFile = join(migrationsFolder, `${entry.tag}.sql`);
+    const sql = readFileSync(sqlFile, 'utf-8');
+    console.log(`[db] Applying migration: ${entry.tag}`);
+
+    sqlite.transaction(() => {
+      sqlite.exec(sql);
+      sqlite.prepare(
+        'INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)'
+      ).run(entry.tag, Date.now());
+    })();
+  }
+
   console.log('[db] Migrations complete');
 }
 

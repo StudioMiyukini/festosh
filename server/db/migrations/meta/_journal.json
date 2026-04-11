@@ -92,6 +92,69 @@
       "when": 1775001000000,
       "tag": "0012_add_support_tickets",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1775840000000,
+      "tag": "0013_add_messaging_invoices_doc_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1775841000000,
+      "tag": "0014_add_exhibitor_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1775842000000,
+      "tag": "0015_add_exhibitor_documents_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1775843000000,
+      "tag": "0016_add_exhibitor_pmr_domains",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1775844000000,
+      "tag": "0017_add_pos_products_sales",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1775930000000,
+      "tag": "0018_add_all_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1775931000000,
+      "tag": "0019_add_visitor_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1775932000000,
+      "tag": "0020_add_qr_objects",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1775933000000,
+      "tag": "0021_add_audit_logs",
+      "breakpoints": true
     }
   ]
 }

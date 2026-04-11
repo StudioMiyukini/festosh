@@ -12,11 +12,15 @@ const KEY_LENGTH = 32; // 256 bits
 
 // Derive a proper 256-bit key from the secret
 function getEncryptionKey(): Buffer {
-  const secret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('[SECURITY] ENCRYPTION_KEY or JWT_SECRET must be set for data encryption');
+  const secret = process.env.ENCRYPTION_KEY;
+  if (!secret || secret.length < 32) {
+    const env = process.env.NODE_ENV || 'development';
+    if (env === 'production') {
+      throw new Error('[SECURITY] ENCRYPTION_KEY must be at least 32 characters and separate from JWT_SECRET');
+    }
+    console.warn('[SECURITY] ENCRYPTION_KEY not set or too short — using fallback for development only.');
+    return crypto.pbkdf2Sync('festosh-dev-encryption-key-DO-NOT-USE-IN-PROD', 'festosh-salt-v1', 100000, KEY_LENGTH, 'sha512');
   }
-  // Use PBKDF2 to derive a proper key from the secret
   return crypto.pbkdf2Sync(secret, 'festosh-salt-v1', 100000, KEY_LENGTH, 'sha512');
 }
 
@@ -63,6 +67,7 @@ export function decrypt(encryptedData: string): string {
  * Uses HMAC-SHA256 — deterministic but not reversible.
  */
 export function hmacHash(value: string): string {
-  const secret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || '';
-  return crypto.createHmac('sha256', secret).update(value.toLowerCase().trim()).digest('hex');
+  // Use derived key for HMAC, not raw env var
+  const key = getEncryptionKey();
+  return crypto.createHmac('sha256', key).update(value.toLowerCase().trim()).digest('hex');
 }

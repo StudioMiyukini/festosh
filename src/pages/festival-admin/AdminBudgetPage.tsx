@@ -11,11 +11,15 @@ import {
   X,
   Trash2,
   Pencil,
+  Paperclip,
+  FileText,
+  Upload,
 } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
 import { api } from '@/lib/api-client';
 import type { BudgetCategory, BudgetEntry } from '@/types/budget';
 import type { BudgetEntryType } from '@/types/enums';
+import { formatCurrency } from '@/lib/format-utils';
 
 interface BudgetSummary {
   total_income_cents: number;
@@ -43,6 +47,9 @@ export function AdminBudgetPage() {
   const [entryDate, setEntryDate] = useState('');
   const [entryPaymentMethod, setEntryPaymentMethod] = useState('');
   const [entryNotes, setEntryNotes] = useState('');
+  const [entryReceiptUrl, setEntryReceiptUrl] = useState('');
+  const [entryReceiptFile, setEntryReceiptFile] = useState<File | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [submittingEntry, setSubmittingEntry] = useState(false);
 
   // Category create dialog
@@ -52,8 +59,6 @@ export function AdminBudgetPage() {
   const [categoryColor, setCategoryColor] = useState('#6366f1');
   const [creatingCategory, setCreatingCategory] = useState(false);
 
-  const formatCurrency = (cents: number) =>
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 
   const fetchData = useCallback(async () => {
     if (!festival) return;
@@ -91,6 +96,8 @@ export function AdminBudgetPage() {
     setEntryDate('');
     setEntryPaymentMethod('');
     setEntryNotes('');
+    setEntryReceiptUrl('');
+    setEntryReceiptFile(null);
     setEditingEntry(null);
   };
 
@@ -109,6 +116,8 @@ export function AdminBudgetPage() {
     setEntryDate(entry.date);
     setEntryPaymentMethod(entry.payment_method || '');
     setEntryNotes(entry.notes || '');
+    setEntryReceiptUrl(entry.receipt_url || '');
+    setEntryReceiptFile(null);
     setShowEntryDialog(true);
   };
 
@@ -118,6 +127,23 @@ export function AdminBudgetPage() {
     setSubmittingEntry(true);
     setMessage(null);
 
+    // Upload receipt file if one was selected
+    let receiptUrl = entryReceiptUrl || null;
+    if (entryReceiptFile) {
+      setUploadingReceipt(true);
+      const formData = new FormData();
+      formData.append('file', entryReceiptFile);
+      const uploadRes = await api.uploadFile<{ receipt_url: string }>('/budget/receipt', formData);
+      setUploadingReceipt(false);
+      if (uploadRes.success && uploadRes.data) {
+        receiptUrl = uploadRes.data.receipt_url;
+      } else {
+        setMessage({ type: 'error', text: uploadRes.error || 'Erreur lors de l\'upload du justificatif.' });
+        setSubmittingEntry(false);
+        return;
+      }
+    }
+
     const payload = {
       edition_id: activeEdition.id,
       category_id: entryCategoryId,
@@ -125,6 +151,7 @@ export function AdminBudgetPage() {
       description: entryDescription.trim(),
       amount_cents: Math.round(parseFloat(entryAmount) * 100),
       date: entryDate,
+      receipt_url: receiptUrl,
       payment_method: entryPaymentMethod.trim() || null,
       notes: entryNotes.trim() || null,
     };
@@ -134,23 +161,21 @@ export function AdminBudgetPage() {
         `/budget/entries/${editingEntry.id}`,
         payload
       );
-      if (res.success && res.data) {
-        setEntries((prev) => prev.map((e) => (e.id === editingEntry.id ? res.data! : e)));
+      if (res.success) {
         setShowEntryDialog(false);
         resetEntryForm();
         setMessage({ type: 'success', text: 'Entree mise a jour.' });
-        fetchData(); // refresh summary
+        fetchData();
       } else {
         setMessage({ type: 'error', text: res.error || 'Erreur lors de la mise a jour.' });
       }
     } else {
       const res = await api.post<BudgetEntry>(`/budget/edition/${activeEdition.id}/entries`, payload);
-      if (res.success && res.data) {
-        setEntries((prev) => [...prev, res.data!]);
+      if (res.success) {
         setShowEntryDialog(false);
         resetEntryForm();
         setMessage({ type: 'success', text: 'Entree ajoutee.' });
-        fetchData(); // refresh summary
+        fetchData();
       } else {
         setMessage({ type: 'error', text: res.error || 'Erreur lors de la creation.' });
       }
@@ -487,6 +512,59 @@ export function AdminBudgetPage() {
                   className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Justificatif</label>
+                {entryReceiptUrl && !entryReceiptFile && (
+                  <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <a
+                      href={entryReceiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 truncate text-primary hover:underline"
+                    >
+                      Justificatif actuel
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setEntryReceiptUrl('')}
+                      className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+                      title="Supprimer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+                {entryReceiptFile ? (
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                    <span className="flex-1 truncate text-foreground">{entryReceiptFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEntryReceiptFile(null)}
+                      className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+                      title="Retirer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-foreground">
+                    <Upload className="h-4 w-4" />
+                    <span>Ajouter un fichier (PDF, JPEG, PNG — max 10 Mo)</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setEntryReceiptFile(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button
@@ -502,8 +580,8 @@ export function AdminBudgetPage() {
                 disabled={submittingEntry || !entryDescription.trim() || !entryAmount || !entryCategoryId || !entryDate}
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
-                {submittingEntry && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editingEntry ? 'Enregistrer' : 'Ajouter'}
+                {(submittingEntry || uploadingReceipt) && <Loader2 className="h-4 w-4 animate-spin" />}
+                {uploadingReceipt ? 'Upload...' : editingEntry ? 'Enregistrer' : 'Ajouter'}
               </button>
             </div>
           </div>
@@ -564,7 +642,20 @@ export function AdminBudgetPage() {
               {entries.map((entry) => (
                 <tr key={entry.id} className="hover:bg-muted/50">
                   <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-foreground">
-                    {entry.description}
+                    <span className="flex items-center gap-1.5">
+                      {entry.description}
+                      {entry.receipt_url && (
+                        <a
+                          href={entry.receipt_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Voir le justificatif"
+                          className="text-muted-foreground hover:text-primary"
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span

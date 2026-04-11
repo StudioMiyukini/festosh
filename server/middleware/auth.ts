@@ -14,15 +14,19 @@ import { tokenBlacklist } from '../db/schema.js';
 // JWT configuration — fail hard if no secret in production
 // ---------------------------------------------------------------------------
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const JWT_SECRET = process.env.JWT_SECRET || (() => {
-  if (NODE_ENV === 'production') {
-    console.error('[SECURITY] JWT_SECRET is not set! Refusing to start in production without a secret.');
-    process.exit(1);
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    if (NODE_ENV === 'production') {
+      console.error('[SECURITY] JWT_SECRET must be at least 32 characters in production!');
+      process.exit(1);
+    }
+    console.warn('[SECURITY] Using default JWT_SECRET — set a strong JWT_SECRET (32+ chars) for production.');
+    return 'festosh-dev-secret-DO-NOT-USE-IN-PROD-' + 'x'.repeat(32);
   }
-  console.warn('[SECURITY] Using default JWT_SECRET — set JWT_SECRET env var for production.');
-  return 'festosh-dev-secret-DO-NOT-USE-IN-PROD';
+  return secret;
 })();
-const JWT_EXPIRY = '24h'; // Reduced from 7d for security
+const JWT_EXPIRY = '24h';
 const BCRYPT_ROUNDS = 12; // Increased from 10
 
 // ---------------------------------------------------------------------------

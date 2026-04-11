@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogIn, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, X, User, LogIn, LogOut, ChevronDown, Shield, MessageSquare, Store, Sparkles } from 'lucide-react';
 import { Logo } from '@/components/shared/Logo';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAuth } from '@/hooks/use-auth';
 
 const NAV_LINKS = [
   { to: '/', label: 'Accueil' },
-  { to: '/directory', label: 'Annuaire' },
+  { to: '/directory', label: 'Festivals' },
+  { to: '/exhibitors', label: 'Exposants' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/docs', label: 'Documentation' },
-  { to: '/about', label: 'A propos' },
 ];
 
 export function PlatformLayout() {
@@ -100,6 +100,42 @@ export function PlatformLayout() {
                       <User className="h-4 w-4" />
                       Mon profil
                     </Link>
+                    <Link
+                      to="/visitor"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Mon espace visiteur
+                    </Link>
+                    <Link
+                      to="/messaging"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Messagerie
+                    </Link>
+                    {(profile?.user_type === 'exhibitor' || profile?.user_type === 'organizer') && (
+                      <Link
+                        to="/exhibitor"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
+                      >
+                        <Store className="h-4 w-4" />
+                        Espace exposant
+                      </Link>
+                    )}
+                    {profile?.platform_role === 'admin' && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
+                      >
+                        <Shield className="h-4 w-4" />
+                        Administration
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={handleSignOut}
@@ -170,6 +206,42 @@ export function PlatformLayout() {
                       <User className="h-4 w-4" />
                       Mon profil
                     </Link>
+                    <Link
+                      to="/visitor"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Mon espace visiteur
+                    </Link>
+                    <Link
+                      to="/messaging"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Messagerie
+                    </Link>
+                    {(profile?.user_type === 'exhibitor' || profile?.user_type === 'organizer') && (
+                      <Link
+                        to="/exhibitor"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                      >
+                        <Store className="h-4 w-4" />
+                        Espace exposant
+                      </Link>
+                    )}
+                    {profile?.platform_role === 'admin' && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                      >
+                        <Shield className="h-4 w-4" />
+                        Administration
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={handleSignOut}

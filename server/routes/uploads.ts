@@ -13,6 +13,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { stream } from 'hono/streaming';
 import { createReadStream as fsCreateReadStream } from 'fs';
 import { stat } from 'fs/promises';
+import { validateFileContent } from '../lib/file-validation.js';
 
 const uploadRoutes = new Hono();
 
@@ -79,8 +80,13 @@ uploadRoutes.post('/', async (c) => {
     const storagePath = `${userId}/${storedName}`;
     const fullPath = resolve(UPLOADS_DIR, storagePath);
 
-    // Write file to disk
+    // Validate file content matches claimed MIME type (prevent spoofing)
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (!validateFileContent(buffer, file.type)) {
+      return c.json({ success: false, error: 'File content does not match declared type' }, 400);
+    }
+
+    // Write file to disk
     writeFileSync(fullPath, buffer);
 
     // Insert document record
@@ -189,7 +195,8 @@ uploadRoutes.get('/:id/download', async (c) => {
 
     c.header('Content-Type', doc.mimeType);
     c.header('Content-Length', String(fileStat.size));
-    c.header('Content-Disposition', `${isImage ? 'inline' : 'attachment'}; filename="${doc.fileName}"`);
+    const safeName = doc.fileName.replace(/[^\w\s.\-]/g, '_');
+    c.header('Content-Disposition', `${isImage ? 'inline' : 'attachment'}; filename="${safeName}"`);
 
     return stream(c, async (s) => {
       const readable = fsCreateReadStream(fullPath);

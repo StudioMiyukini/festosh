@@ -41,9 +41,37 @@ import { AdminSettingsPage } from '@/pages/festival-admin/AdminSettingsPage';
 import { AdminAgendaPage } from '@/pages/festival-admin/AdminAgendaPage';
 import { AdminTasksMeetingsPage } from '@/pages/festival-admin/AdminTasksMeetingsPage';
 import { AdminTicketsPage } from '@/pages/festival-admin/AdminTicketsPage';
+import { AdminTicketingPage } from '@/pages/festival-admin/AdminTicketingPage';
+import { AdminMarketplacePage } from '@/pages/festival-admin/AdminMarketplacePage';
+import { AdminSponsorsPage } from '@/pages/festival-admin/AdminSponsorsPage';
+import { AdminReservationsPage } from '@/pages/festival-admin/AdminReservationsPage';
+import { AdminGamificationPage } from '@/pages/festival-admin/AdminGamificationPage';
+import { AdminVotesPage } from '@/pages/festival-admin/AdminVotesPage';
+import { AdminRafflesPage } from '@/pages/festival-admin/AdminRafflesPage';
+import { AdminArtistsPage } from '@/pages/festival-admin/AdminArtistsPage';
+import { AdminQueuesPage } from '@/pages/festival-admin/AdminQueuesPage';
+import { AdminAnalyticsPage } from '@/pages/festival-admin/AdminAnalyticsPage';
+import { AdminApiPage } from '@/pages/festival-admin/AdminApiPage';
+import { AdminQrObjectsPage } from '@/pages/festival-admin/AdminQrObjectsPage';
+
+// New platform pages
+import { MessagingPage } from '@/pages/platform/MessagingPage';
+import { ExhibitorDashboardPage } from '@/pages/platform/ExhibitorDashboardPage';
+import { ExhibitorDirectoryPage } from '@/pages/platform/ExhibitorDirectoryPage';
+import { PosTerminalPage } from '@/pages/platform/PosTerminalPage';
+import { PosProductsPage } from '@/pages/platform/PosProductsPage';
+import { PosAccountingPage } from '@/pages/platform/PosAccountingPage';
+import { VisitorDashboardPage } from '@/pages/platform/VisitorDashboardPage';
+import { QrScannerPage } from '@/pages/platform/QrScannerPage';
 
 // Invite join page
 import { JoinInvitePage } from '@/pages/platform/JoinInvitePage';
+
+// Platform admin pages
+import { PlatformAdminLayout } from '@/layouts/PlatformAdminLayout';
+import { PlatformAdminDashboard } from '@/pages/admin/PlatformAdminDashboard';
+import { PlatformAdminUsers } from '@/pages/admin/PlatformAdminUsers';
+import { PlatformAdminFestivals } from '@/pages/admin/PlatformAdminFestivals';
 
 // Not Found
 import { NotFoundPage } from '@/pages/platform/NotFoundPage';
@@ -73,6 +101,14 @@ export const router = createBrowserRouter([
       { path: '/directory', element: <DirectoryPage /> },
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/profile', element: <ProfilePage /> },
+      { path: '/messaging', element: <MessagingPage /> },
+      { path: '/exhibitor', element: <ExhibitorDashboardPage /> },
+      { path: '/exhibitors', element: <ExhibitorDirectoryPage /> },
+      { path: '/pos', element: <PosTerminalPage /> },
+      { path: '/pos/products', element: <PosProductsPage /> },
+      { path: '/pos/accounting', element: <PosAccountingPage /> },
+      { path: '/visitor', element: <VisitorDashboardPage /> },
+      { path: '/scan', element: <QrScannerPage /> },
       { path: '/privacy', element: <PrivacyPage /> },
       { path: '/about', element: <AboutPage /> },
       { path: '/docs', element: <DocsPage /> },
@@ -111,9 +147,32 @@ export const router = createBrowserRouter([
       { path: 'tasks', element: <AdminTasksMeetingsPage /> },
       { path: 'floor-plan', element: <AdminFloorPlanEditorPage /> },
       { path: 'tickets', element: <AdminTicketsPage /> },
+      { path: 'ticketing', element: <AdminTicketingPage /> },
+      { path: 'marketplace', element: <AdminMarketplacePage /> },
+      { path: 'sponsors', element: <AdminSponsorsPage /> },
+      { path: 'reservations', element: <AdminReservationsPage /> },
+      { path: 'gamification', element: <AdminGamificationPage /> },
+      { path: 'votes', element: <AdminVotesPage /> },
+      { path: 'raffles', element: <AdminRafflesPage /> },
+      { path: 'artists', element: <AdminArtistsPage /> },
+      { path: 'queues', element: <AdminQueuesPage /> },
+      { path: 'analytics', element: <AdminAnalyticsPage /> },
+      { path: 'api', element: <AdminApiPage /> },
+      { path: 'qr-objects', element: <AdminQrObjectsPage /> },
       { path: 'settings', element: <AdminSettingsPage /> },
       { path: 'settings/theme', element: <AdminSettingsPage /> },
       { path: 'settings/communication', element: <AdminSettingsPage /> },
+    ],
+  },
+
+  // Platform admin routes
+  {
+    path: '/admin',
+    element: <PlatformAdminLayout />,
+    children: [
+      { index: true, element: <PlatformAdminDashboard /> },
+      { path: 'users', element: <PlatformAdminUsers /> },
+      { path: 'festivals', element: <PlatformAdminFestivals /> },
     ],
   },
 

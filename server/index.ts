@@ -32,6 +32,23 @@ import { inviteRoutes } from './routes/invites.js';
 import { exportRoutes } from './routes/exports.js';
 import { ticketRoutes } from './routes/tickets.js';
 import { chatbotRoutes } from './routes/chatbot.js';
+import { platformAdminRoutes } from './routes/platform-admin.js';
+import { messagingRoutes } from './routes/messaging.js';
+import { exhibitorDirectoryRoutes } from './routes/exhibitor-directory.js';
+import { posRoutes } from './routes/pos.js';
+import { ticketingRoutes } from './routes/ticketing.js';
+import { marketplaceRoutes } from './routes/marketplace.js';
+import { sponsorRoutes } from './routes/sponsors.js';
+import { reservationRoutes } from './routes/reservations.js';
+import { gamificationRoutes } from './routes/gamification.js';
+import { voteRoutes } from './routes/votes.js';
+import { raffleRoutes } from './routes/raffles.js';
+import { artistRoutes } from './routes/artists.js';
+import { queueRoutes } from './routes/queues.js';
+import { analyticsRoutes } from './routes/analytics.js';
+import { apiKeyRoutes } from './routes/api-keys.js';
+import { visitorHubRoutes } from './routes/visitor-hub.js';
+import { qrObjectRoutes } from './routes/qr-objects.js';
 
 // ---------------------------------------------------------------------------
 // Create the Hono app
@@ -71,14 +88,20 @@ app.use('*', securityHeaders);
 // ---------------------------------------------------------------------------
 const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  : ['http://localhost:3002', 'http://127.0.0.1:3002'];
 
 app.use('*', cors({
   origin: (origin) => {
     if (!origin) return ALLOWED_ORIGINS[0]; // Same-origin requests
     if (ALLOWED_ORIGINS.includes(origin)) return origin;
-    // Allow *.miyukini.com subdomains
-    if (origin.endsWith('.miyukini.com') || origin === 'https://festosh.miyukini.com') return origin;
+    // Allow specific subdomains only (not wildcard)
+    const ALLOWED_SUBDOMAIN_PATTERNS = [
+      /^https:\/\/festosh\.miyukini\.com$/,
+      /^https:\/\/[a-z0-9-]+\.miyukini\.com$/,
+      /^https:\/\/festosh\.miyukini-home\.org$/,
+      /^https:\/\/[a-z0-9-]+\.miyukini-home\.org$/,
+    ];
+    if (ALLOWED_SUBDOMAIN_PATTERNS.some((re) => re.test(origin))) return origin;
     return null as unknown as string; // Reject
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -88,6 +111,23 @@ app.use('*', cors({
 }));
 
 app.use('*', logger());
+
+// ---------------------------------------------------------------------------
+// CSRF protection — require X-Requested-With header on mutations
+// ---------------------------------------------------------------------------
+const csrfProtection: MiddlewareHandler = async (c, next) => {
+  const method = c.req.method;
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const contentType = c.req.header('content-type') || '';
+    const xRequestedWith = c.req.header('x-requested-with');
+    // Allow JSON requests (set by fetch) and multipart (file uploads)
+    if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data') && !xRequestedWith) {
+      return c.json({ success: false, error: 'CSRF protection: missing content-type or x-requested-with header' }, 403);
+    }
+  }
+  await next();
+};
+app.use('/api/*', csrfProtection);
 
 // ---------------------------------------------------------------------------
 // Health check
@@ -127,6 +167,23 @@ app.route('/api/invites', inviteRoutes);
 app.route('/api/exports', exportRoutes);
 app.route('/api/tickets', ticketRoutes);
 app.route('/api/chatbot', chatbotRoutes);
+app.route('/api/platform-admin', platformAdminRoutes);
+app.route('/api/messaging', messagingRoutes);
+app.route('/api/exhibitor-hub', exhibitorDirectoryRoutes);
+app.route('/api/pos', posRoutes);
+app.route('/api/ticketing', ticketingRoutes);
+app.route('/api/marketplace', marketplaceRoutes);
+app.route('/api/sponsors', sponsorRoutes);
+app.route('/api/reservations', reservationRoutes);
+app.route('/api/gamification', gamificationRoutes);
+app.route('/api/votes', voteRoutes);
+app.route('/api/raffles', raffleRoutes);
+app.route('/api/artists', artistRoutes);
+app.route('/api/queues', queueRoutes);
+app.route('/api/analytics', analyticsRoutes);
+app.route('/api/api-management', apiKeyRoutes);
+app.route('/api/visitor-hub', visitorHubRoutes);
+app.route('/api/qr-objects', qrObjectRoutes);
 
 // ---------------------------------------------------------------------------
 // 404 fallback
@@ -151,10 +208,24 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 try {
   initializeDatabase();
   console.log('[db] Database initialized successfully');
+
+  // Cleanup expired token blacklist entries on startup
+  const { sqlite } = await import('./db/index.js');
+  const now = Math.floor(Date.now() / 1000);
+  sqlite.exec(`DELETE FROM token_blacklist WHERE expires_at < ${now}`);
+  console.log('[security] Expired token blacklist entries cleaned up');
 } catch (error) {
   console.error('[db] Failed to initialize database:', error);
   process.exit(1);
 }
+
+// Periodic token blacklist cleanup (every 6 hours)
+setInterval(() => {
+  try {
+    const { sqlite: db } = require('./db/index.js');
+    db.exec(`DELETE FROM token_blacklist WHERE expires_at < ${Math.floor(Date.now() / 1000)}`);
+  } catch { /* ignore */ }
+}, 6 * 60 * 60 * 1000);
 
 serve({
   fetch: app.fetch,
