@@ -89,13 +89,18 @@ export function ExhibitorDirectoryPage() {
       offset: params.offset,
     });
 
-    const result = await api.get<DirectoryResponse>(`/exhibitor-hub/directory${qs}`);
+    const result = await api.get<ExhibitorCard[]>(`/exhibitor-hub/directory${qs}`);
 
-    if (result.data) {
-      const response = result.data;
-      setExhibitors(response.data);
-      setFilters(response.filters);
-      setTotal(response.pagination.total);
+    if (result.success) {
+      setExhibitors(Array.isArray(result.data) ? result.data : []);
+      // filters and pagination are at the response level alongside data
+      const raw = result as any;
+      setFilters({
+        categories: Array.isArray(raw.filters?.categories) ? raw.filters.categories : [],
+        cities: Array.isArray(raw.filters?.cities) ? raw.filters.cities : [],
+        domains: Array.isArray(raw.filters?.domains) ? raw.filters.domains : [],
+      });
+      setTotal(raw.pagination?.total ?? 0);
     } else {
       setError(result.error || 'Une erreur est survenue.');
       setExhibitors([]);

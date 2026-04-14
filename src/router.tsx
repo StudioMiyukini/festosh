@@ -55,7 +55,9 @@ import { AdminApiPage } from '@/pages/festival-admin/AdminApiPage';
 import { AdminQrObjectsPage } from '@/pages/festival-admin/AdminQrObjectsPage';
 import { AdminRolesPage } from '@/pages/festival-admin/AdminRolesPage';
 import { AdminSurveysPage } from '@/pages/festival-admin/AdminSurveysPage';
+import { AdminRegulationsPage } from '@/pages/festival-admin/AdminRegulationsPage';
 import { SurveyFillPage } from '@/pages/festival/SurveyFillPage';
+import { FestivalRegulationsPage } from '@/pages/festival/FestivalRegulationsPage';
 import { AdminMeetingEditorPage } from '@/pages/festival-admin/AdminMeetingEditorPage';
 import { AdminWorkspacePage } from '@/pages/festival-admin/AdminWorkspacePage';
 import { WorkspaceDocEditorPage } from '@/pages/festival-admin/WorkspaceDocEditorPage';
@@ -72,6 +74,11 @@ import { PosProductsPage } from '@/pages/platform/PosProductsPage';
 import { PosAccountingPage } from '@/pages/platform/PosAccountingPage';
 import { VisitorDashboardPage } from '@/pages/platform/VisitorDashboardPage';
 import { QrScannerPage } from '@/pages/platform/QrScannerPage';
+import { PricingPage } from '@/pages/platform/PricingPage';
+import { SubscriptionPage } from '@/pages/platform/SubscriptionPage';
+import { BillingPage } from '@/pages/platform/BillingPage';
+import { VolunteerDashboardPage } from '@/pages/platform/VolunteerDashboardPage';
+import { OrganizerDashboardPage } from '@/pages/platform/OrganizerDashboardPage';
 
 // Invite join page
 import { JoinInvitePage } from '@/pages/platform/JoinInvitePage';
@@ -82,6 +89,7 @@ import { PlatformAdminDashboard } from '@/pages/admin/PlatformAdminDashboard';
 import { PlatformAdminUsers } from '@/pages/admin/PlatformAdminUsers';
 import { PlatformAdminFestivals } from '@/pages/admin/PlatformAdminFestivals';
 import { PlatformAdminTickets } from '@/pages/admin/PlatformAdminTickets';
+import { PlatformAdminBilling } from '@/pages/admin/PlatformAdminBilling';
 
 // Not Found
 import { NotFoundPage } from '@/pages/platform/NotFoundPage';
@@ -119,6 +127,11 @@ export const router = createBrowserRouter([
       { path: '/pos/accounting', element: <PosAccountingPage /> },
       { path: '/visitor', element: <VisitorDashboardPage /> },
       { path: '/scan', element: <QrScannerPage /> },
+      { path: '/pricing', element: <PricingPage /> },
+      { path: '/subscription', element: <SubscriptionPage /> },
+      { path: '/billing', element: <BillingPage /> },
+      { path: '/volunteer', element: <VolunteerDashboardPage /> },
+      { path: '/organizer', element: <OrganizerDashboardPage /> },
       { path: '/privacy', element: <PrivacyPage /> },
       { path: '/about', element: <AboutPage /> },
       { path: '/docs', element: <DocsPage /> },
@@ -138,6 +151,7 @@ export const router = createBrowserRouter([
       // CMS pages catch-all (must be last)
       { path: 'p/:pageSlug', element: <CmsPublicPage /> },
       { path: 'survey/:surveyId', element: <SurveyFillPage /> },
+      { path: 'regulations', element: <FestivalRegulationsPage /> },
     ],
   },
 
@@ -172,6 +186,7 @@ export const router = createBrowserRouter([
       { path: 'qr-objects', element: <AdminQrObjectsPage /> },
       { path: 'roles', element: <AdminRolesPage /> },
       { path: 'surveys', element: <AdminSurveysPage /> },
+      { path: 'regulations', element: <AdminRegulationsPage /> },
       { path: 'meetings/:meetingId', element: <AdminMeetingEditorPage /> },
       { path: 'workspace', element: <AdminWorkspacePage /> },
       { path: 'workspace/docs/:docId', element: <WorkspaceDocEditorPage /> },
@@ -193,6 +208,7 @@ export const router = createBrowserRouter([
       { path: 'users', element: <PlatformAdminUsers /> },
       { path: 'festivals', element: <PlatformAdminFestivals /> },
       { path: 'tickets', element: <PlatformAdminTickets /> },
+      { path: 'billing', element: <PlatformAdminBilling /> },
     ],
   },
 

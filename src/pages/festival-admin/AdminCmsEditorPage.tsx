@@ -46,6 +46,7 @@ import { RichTextEditor } from '@/components/shared/RichTextEditor';
 import { BlockRenderer } from '@/features/cms/components/BlockRenderer';
 import type { CmsPage, CmsBlock } from '@/types/cms';
 import type { BlockType } from '@/types/enums';
+import { ImageUploadInput } from '@/components/shared/ImageUploadInput';
 
 // ---------------------------------------------------------------------------
 // Block type metadata
@@ -415,8 +416,8 @@ function HeroForm({ content, onChange }: BlockFormProps) {
         <TextInput value={c.subtitle ?? ''} onChange={(v) => set('subtitle', v)} placeholder="Sous-titre" />
       </div>
       <div className="sm:col-span-2">
-        <FieldLabel>URL image de fond</FieldLabel>
-        <TextInput value={c.background_image_url ?? ''} onChange={(v) => set('background_image_url', v)} placeholder="https://..." />
+        <FieldLabel>Image de fond</FieldLabel>
+        <ImageUploadInput value={c.background_image_url ?? ''} onChange={(v) => set('background_image_url', v)} />
       </div>
 
       {/* CTA 1 — Primary */}
@@ -478,8 +479,8 @@ function ImageForm({ content, onChange }: BlockFormProps) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="sm:col-span-2">
-        <FieldLabel>URL de l&apos;image</FieldLabel>
-        <TextInput value={c.image_url ?? ''} onChange={(v) => set('image_url', v)} placeholder="https://..." />
+        <FieldLabel>Image</FieldLabel>
+        <ImageUploadInput value={c.image_url ?? ''} onChange={(v) => set('image_url', v)} />
       </div>
       <div>
         <FieldLabel>Texte alternatif</FieldLabel>
@@ -516,7 +517,7 @@ function GalleryForm({ content, onChange }: BlockFormProps) {
           <div className="grid flex-1 gap-2 sm:grid-cols-3">
             <div>
               <FieldLabel>URL image</FieldLabel>
-              <TextInput value={img.image_url ?? ''} onChange={(v) => updateItem(idx, 'image_url', v)} placeholder="https://..." />
+              <ImageUploadInput value={img.image_url ?? ''} onChange={(v) => updateItem(idx, 'image_url', v)} />
             </div>
             <div>
               <FieldLabel>Texte alt.</FieldLabel>
@@ -819,8 +820,8 @@ function ImageTextForm({ content, onChange }: BlockFormProps) {
         />
       </div>
       <div className="sm:col-span-2">
-        <FieldLabel>URL de l&apos;image</FieldLabel>
-        <TextInput value={c.image_url ?? ''} onChange={(v) => set('image_url', v)} placeholder="https://..." />
+        <FieldLabel>Image</FieldLabel>
+        <ImageUploadInput value={c.image_url ?? ''} onChange={(v) => set('image_url', v)} />
       </div>
       <div className="sm:col-span-2">
         <FieldLabel>Texte alternatif</FieldLabel>
@@ -1296,7 +1297,7 @@ function LogoCarouselForm({ content, onChange }: BlockFormProps) {
           <div className="grid flex-1 gap-2 sm:grid-cols-3">
             <div>
               <FieldLabel>URL logo</FieldLabel>
-              <TextInput value={logo.image_url ?? ''} onChange={(v) => updateLogo(idx, 'image_url', v)} placeholder="https://..." />
+              <ImageUploadInput value={logo.image_url ?? ''} onChange={(v) => updateLogo(idx, 'image_url', v)} />
             </div>
             <div>
               <FieldLabel>Texte alt.</FieldLabel>

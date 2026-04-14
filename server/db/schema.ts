@@ -47,6 +47,12 @@ export const profiles = sqliteTable(
     xp: integer('xp').notNull().default(0),
     coins: integer('coins').notNull().default(0),
     xpLevel: integer('xp_level').notNull().default(1),
+    isExhibitor: integer('is_exhibitor').notNull().default(0),
+    isVolunteer: integer('is_volunteer').notNull().default(0),
+    isOrganizer: integer('is_organizer').notNull().default(0),
+    isBeta: integer('is_beta').notNull().default(0),
+    betaJoinedAt: integer('beta_joined_at'),
+    subscriptionStatus: text('subscription_status').default('none'), // none | beta | trial | active | past_due | cancelled
   },
   (table) => [
     index('profiles_email_idx').on(table.email),
@@ -115,6 +121,15 @@ export const festivals = sqliteTable(
     socialLinks: text('social_links'), // JSON string
     tags: text('tags'), // JSON string array
     status: text('status').default('draft'),
+    orgName: text('org_name'),
+    orgType: text('org_type'), // societe | association | public
+    orgSiret: text('org_siret'),
+    orgRna: text('org_rna'),
+    orgAddress: text('org_address'),
+    orgPhone: text('org_phone'),
+    orgEmail: text('org_email'),
+    orgIban: text('org_iban'),
+    orgInsurance: text('org_insurance'),
     createdBy: text('created_by').references(() => profiles.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -195,6 +210,7 @@ export const editions = sqliteTable(
     maxExhibitors: integer('max_exhibitors'),
     maxVolunteers: integer('max_volunteers'),
     visitorHours: text('visitor_hours'), // JSON
+    allowBoothSelection: integer('allow_booth_selection').notNull().default(0),
     isActive: integer('is_active').default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -428,6 +444,7 @@ export const boothApplications = sqliteTable(
     reviewedAt: integer('reviewed_at'),
     reviewNotes: text('review_notes'),
     assignedBoothId: text('assigned_booth_id').references(() => boothLocations.id),
+    selectedBoothId: text('selected_booth_id').references(() => boothLocations.id),
     amountCents: integer('amount_cents'),
     isPaid: integer('is_paid').default(0),
     paidAt: integer('paid_at'),
@@ -2170,3 +2187,145 @@ export const surveyResponses = sqliteTable('survey_responses', {
   completed: integer('completed').notNull().default(1),
   createdAt: createdAt(),
 }, (t) => [index('sresp_survey_idx').on(t.surveyId), index('sresp_user_idx').on(t.userId)]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBSCRIPTIONS & PAYMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const subscriptionPlans = sqliteTable('subscription_plans', {
+  id: id(), name: text('name').notNull(), slug: text('slug').notNull().unique(),
+  description: text('description'),
+  priceCents: integer('price_cents').notNull().default(0),
+  currency: text('currency').notNull().default('EUR'),
+  interval: text('interval').notNull().default('monthly'), // monthly | yearly
+  intervalCount: integer('interval_count').notNull().default(1),
+  features: text('features').notNull().default('[]'), // JSON array
+  isActive: integer('is_active').notNull().default(1),
+  sortOrder: integer('sort_order').default(0),
+  createdAt: createdAt(),
+});
+
+export const subscriptions = sqliteTable('subscriptions', {
+  id: id(), userId: text('user_id').notNull().references(() => profiles.id),
+  planId: text('plan_id').notNull().references(() => subscriptionPlans.id),
+  status: text('status').notNull().default('active'), // active | past_due | cancelled | trialing
+  currentPeriodStart: integer('current_period_start').notNull(),
+  currentPeriodEnd: integer('current_period_end').notNull(),
+  cancelAtPeriodEnd: integer('cancel_at_period_end').notNull().default(0),
+  cancelledAt: integer('cancelled_at'),
+  trialEnd: integer('trial_end'),
+  paymentMethod: text('payment_method'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  stripeCustomerId: text('stripe_customer_id'),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('sub_user_idx').on(t.userId), index('sub_status_idx').on(t.status)]);
+
+export const payments = sqliteTable('payments', {
+  id: id(), userId: text('user_id').notNull().references(() => profiles.id),
+  subscriptionId: text('subscription_id').references(() => subscriptions.id),
+  amountCents: integer('amount_cents').notNull(),
+  currency: text('currency').notNull().default('EUR'),
+  status: text('status').notNull().default('pending'), // pending | succeeded | failed | refunded
+  paymentMethod: text('payment_method'),
+  stripePaymentId: text('stripe_payment_id'),
+  invoiceUrl: text('invoice_url'),
+  description: text('description'),
+  createdAt: createdAt(),
+}, (t) => [index('pay_user_idx').on(t.userId)]);
+
+// ─── Billing Profiles ────────────────────────────────────────────────────
+export const billingProfiles = sqliteTable('billing_profiles', {
+  id: id(), userId: text('user_id').notNull().unique().references(() => profiles.id),
+  companyName: text('company_name'), billingEmail: text('billing_email'),
+  vatNumber: text('vat_number'),
+  addressLine1: text('address_line1'), addressLine2: text('address_line2'),
+  postalCode: text('postal_code'), city: text('city'),
+  country: text('country').default('FR'),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('bp_user_idx').on(t.userId)]);
+
+// ─── Platform Invoices ───────────────────────────────────────────────────
+export const platformInvoices = sqliteTable('platform_invoices', {
+  id: id(), userId: text('user_id').notNull().references(() => profiles.id),
+  subscriptionId: text('subscription_id').references(() => subscriptions.id),
+  paymentId: text('payment_id').references(() => payments.id),
+  invoiceNumber: text('invoice_number').notNull().unique(),
+  billingName: text('billing_name'), billingEmail: text('billing_email'),
+  billingAddress: text('billing_address'), billingVat: text('billing_vat'),
+  label: text('label').notNull(),
+  subtotalCents: integer('subtotal_cents').notNull().default(0),
+  taxRate: real('tax_rate').notNull().default(0.20),
+  taxCents: integer('tax_cents').notNull().default(0),
+  totalCents: integer('total_cents').notNull().default(0),
+  currency: text('currency').notNull().default('EUR'),
+  status: text('status').notNull().default('paid'),
+  issuedAt: integer('issued_at').notNull(),
+  dueAt: integer('due_at'), paidAt: integer('paid_at'),
+  notes: text('notes'), createdAt: createdAt(),
+}, (t) => [index('pinv_user_idx').on(t.userId), index('pinv_number_idx').on(t.invoiceNumber)]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGULATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const regulations = sqliteTable('regulations', {
+  id: id(), festivalId: text('festival_id').notNull().references(() => festivals.id, { onDelete: 'cascade' }),
+  editionId: text('edition_id').references(() => editions.id),
+  title: text('title').notNull(), slug: text('slug').notNull(),
+  category: text('category').notNull().default('general'),
+  content: text('content').notNull().default(''),
+  isPublished: integer('is_published').notNull().default(0),
+  requiresAcceptance: integer('requires_acceptance').notNull().default(0),
+  version: integer('version').notNull().default(1),
+  sortOrder: integer('sort_order').default(0),
+  createdBy: text('created_by').notNull().references(() => profiles.id),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('reg_festival_idx').on(t.festivalId), uniqueIndex('reg_slug_idx').on(t.festivalId, t.slug)]);
+
+export const regulationAcceptances = sqliteTable('regulation_acceptances', {
+  id: id(), regulationId: text('regulation_id').notNull().references(() => regulations.id, { onDelete: 'cascade' }),
+  userId: text('user_id').references(() => profiles.id),
+  guestName: text('guest_name'), guestEmail: text('guest_email'),
+  acceptedAt: integer('accepted_at').$defaultFn(() => Math.floor(Date.now() / 1000)),
+  ipAddress: text('ip_address'),
+}, (t) => [index('regacc_reg_idx').on(t.regulationId), index('regacc_user_idx').on(t.userId)]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VOLUNTEER PROFILES & APPLICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const volunteerProfiles = sqliteTable('volunteer_profiles', {
+  id: id(), userId: text('user_id').notNull().unique().references(() => profiles.id),
+  skills: text('skills').default('[]'), // JSON array
+  certifications: text('certifications').default('[]'), // JSON array
+  availability: text('availability').default('{}'), // JSON: { monday: [9,17], ... }
+  constraints: text('constraints'),
+  isPmr: integer('is_pmr').notNull().default(0),
+  preferredActions: text('preferred_actions').default('[]'), // JSON array
+  bio: text('bio'),
+  emergencyContactName: text('emergency_contact_name'),
+  emergencyContactPhone: text('emergency_contact_phone'),
+  tshirtSize: text('tshirt_size'),
+  hasCar: integer('has_car').notNull().default(0),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [index('vprof_user_idx').on(t.userId)]);
+
+export const volunteerApplications = sqliteTable('volunteer_applications', {
+  id: id(),
+  festivalId: text('festival_id').notNull().references(() => festivals.id, { onDelete: 'cascade' }),
+  editionId: text('edition_id').references(() => editions.id),
+  userId: text('user_id').notNull().references(() => profiles.id),
+  volunteerProfileId: text('volunteer_profile_id').notNull().references(() => volunteerProfiles.id),
+  preferredActions: text('preferred_actions').default('[]'), // JSON array
+  availability: text('availability').default('{}'), // JSON
+  motivation: text('motivation'),
+  status: text('status').notNull().default('pending'), // pending | accepted | rejected
+  reviewedBy: text('reviewed_by').references(() => profiles.id),
+  reviewedAt: integer('reviewed_at'),
+  notes: text('notes'),
+  createdAt: createdAt(), updatedAt: updatedAt(),
+}, (t) => [
+  index('vapp_festival_idx').on(t.festivalId),
+  index('vapp_user_idx').on(t.userId),
+  uniqueIndex('vapp_unique_idx').on(t.editionId, t.userId),
+]);

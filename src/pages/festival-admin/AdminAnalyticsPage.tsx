@@ -13,17 +13,16 @@ import { api } from '@/lib/api-client';
 import { formatCurrency } from '@/lib/format-utils';
 
 interface AnalyticsDashboard {
-  tickets: {
-    sold: number;
-    scanned: number;
-    revenue_cents: number;
+  attendance: {
+    tickets_sold: number;
+    tickets_scanned: number;
+    scan_rate: number;
   };
   revenue: {
-    total_cents: number;
-    tickets_cents: number;
-    pos_cents: number;
-    marketplace_cents: number;
-    sponsors_cents: number;
+    ticket_revenue: number;
+    pos_sales_revenue: number;
+    marketplace_revenue: number;
+    sponsor_revenue: number;
   };
   exhibitors: {
     total: number;
@@ -32,9 +31,13 @@ interface AnalyticsDashboard {
     rejected: number;
   };
   engagement: {
-    votes: number;
-    tombola_entries: number;
+    votes_cast: number;
+    raffle_entries: number;
     stamps_collected: number;
+  };
+  marketplace: {
+    orders_count: number;
+    gmv: number;
   };
 }
 
@@ -97,12 +100,13 @@ export function AdminAnalyticsPage() {
   }
 
   const revenueBreakdown = [
-    { label: 'Billets', value: data.revenue.tickets_cents, color: 'bg-blue-500' },
-    { label: 'Point de vente', value: data.revenue.pos_cents, color: 'bg-green-500' },
-    { label: 'Marketplace', value: data.revenue.marketplace_cents, color: 'bg-purple-500' },
-    { label: 'Sponsors', value: data.revenue.sponsors_cents, color: 'bg-orange-500' },
+    { label: 'Billets', value: data.revenue.ticket_revenue, color: 'bg-blue-500' },
+    { label: 'Point de vente', value: data.revenue.pos_sales_revenue, color: 'bg-green-500' },
+    { label: 'Marketplace', value: data.revenue.marketplace_revenue, color: 'bg-purple-500' },
+    { label: 'Sponsors', value: data.revenue.sponsor_revenue, color: 'bg-orange-500' },
   ];
 
+  const totalRevenue = data.revenue.ticket_revenue + data.revenue.pos_sales_revenue + data.revenue.marketplace_revenue + data.revenue.sponsor_revenue;
   const maxRevenue = Math.max(...revenueBreakdown.map((r) => r.value), 1);
 
   const exhibitorStatuses = [
@@ -111,7 +115,7 @@ export function AdminAnalyticsPage() {
     { label: 'Refuses', value: data.exhibitors.rejected, color: 'bg-red-500' },
   ];
 
-  const ticketMax = Math.max(data.tickets.sold, 1);
+  const ticketMax = Math.max(data.attendance.tickets_sold, 1);
 
 if (!activeEdition) {    return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;  }
   return (
@@ -130,9 +134,9 @@ if (!activeEdition) {    return <div className="flex items-center justify-center
             <p className="text-sm font-medium text-muted-foreground">Billets vendus</p>
             <Ticket className="h-4 w-4 text-blue-500" />
           </div>
-          <p className="mt-2 text-2xl font-bold text-foreground">{data.tickets.sold}</p>
+          <p className="mt-2 text-2xl font-bold text-foreground">{data.attendance.tickets_sold}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {data.tickets.scanned} scannes
+            {data.attendance.tickets_scanned} scannes
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-6">
@@ -141,7 +145,7 @@ if (!activeEdition) {    return <div className="flex items-center justify-center
             <TrendingUp className="h-4 w-4 text-green-500" />
           </div>
           <p className="mt-2 text-2xl font-bold text-foreground">
-            {formatCurrency(data.revenue.total_cents)}
+            {formatCurrency(totalRevenue)}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-6">
@@ -160,7 +164,7 @@ if (!activeEdition) {    return <div className="flex items-center justify-center
             <Heart className="h-4 w-4 text-red-500" />
           </div>
           <p className="mt-2 text-2xl font-bold text-foreground">
-            {data.engagement.votes + data.engagement.tombola_entries + data.engagement.stamps_collected}
+            {data.engagement.votes_cast + data.engagement.raffle_entries + data.engagement.stamps_collected}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             interactions totales
@@ -176,7 +180,7 @@ if (!activeEdition) {    return <div className="flex items-center justify-center
             <div>
               <div className="mb-1 flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Vendus</span>
-                <span className="font-medium text-foreground">{data.tickets.sold}</span>
+                <span className="font-medium text-foreground">{data.attendance.tickets_sold}</span>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
                 <div
@@ -188,20 +192,20 @@ if (!activeEdition) {    return <div className="flex items-center justify-center
             <div>
               <div className="mb-1 flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Scannes</span>
-                <span className="font-medium text-foreground">{data.tickets.scanned}</span>
+                <span className="font-medium text-foreground">{data.attendance.tickets_scanned}</span>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-3 rounded-full bg-green-500 transition-all"
-                  style={{ width: `${(data.tickets.scanned / ticketMax) * 100}%` }}
+                  style={{ width: `${(data.attendance.tickets_scanned / ticketMax) * 100}%` }}
                 />
               </div>
             </div>
             <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-              Taux de scan : {data.tickets.sold > 0 ? Math.round((data.tickets.scanned / data.tickets.sold) * 100) : 0}%
+              Taux de scan : {data.attendance.tickets_sold > 0 ? Math.round((data.attendance.tickets_scanned / data.attendance.tickets_sold) * 100) : 0}%
             </div>
             <div className="text-sm text-muted-foreground">
-              Revenus billets : <span className="font-medium text-foreground">{formatCurrency(data.tickets.revenue_cents)}</span>
+              Revenus billets : <span className="font-medium text-foreground">{formatCurrency(data.revenue.ticket_revenue)}</span>
             </div>
           </div>
         </div>
@@ -227,7 +231,7 @@ if (!activeEdition) {    return <div className="flex items-center justify-center
             <div className="border-t border-border pt-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-foreground">Total</span>
-                <span className="font-bold text-foreground">{formatCurrency(data.revenue.total_cents)}</span>
+                <span className="font-bold text-foreground">{formatCurrency(totalRevenue)}</span>
               </div>
             </div>
           </div>
@@ -269,11 +273,11 @@ if (!activeEdition) {    return <div className="flex items-center justify-center
           <h2 className="mb-4 text-base font-semibold text-foreground">Engagement</h2>
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border border-border p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{data.engagement.votes}</p>
+              <p className="text-2xl font-bold text-foreground">{data.engagement.votes_cast}</p>
               <p className="mt-1 text-xs text-muted-foreground">Votes</p>
             </div>
             <div className="rounded-lg border border-border p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{data.engagement.tombola_entries}</p>
+              <p className="text-2xl font-bold text-foreground">{data.engagement.raffle_entries}</p>
               <p className="mt-1 text-xs text-muted-foreground">Tombola</p>
             </div>
             <div className="rounded-lg border border-border p-4 text-center">
@@ -282,7 +286,7 @@ if (!activeEdition) {    return <div className="flex items-center justify-center
             </div>
           </div>
           <div className="mt-4 rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-            Total interactions : {data.engagement.votes + data.engagement.tombola_entries + data.engagement.stamps_collected}
+            Total interactions : {data.engagement.votes_cast + data.engagement.raffle_entries + data.engagement.stamps_collected}
           </div>
         </div>
       </div>

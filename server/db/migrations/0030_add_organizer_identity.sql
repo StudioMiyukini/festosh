@@ -1,0 +1,9 @@
+ALTER TABLE festivals ADD COLUMN org_name text;
+ALTER TABLE festivals ADD COLUMN org_type text;
+ALTER TABLE festivals ADD COLUMN org_siret text;
+ALTER TABLE festivals ADD COLUMN org_rna text;
+ALTER TABLE festivals ADD COLUMN org_address text;
+ALTER TABLE festivals ADD COLUMN org_phone text;
+ALTER TABLE festivals ADD COLUMN org_email text;
+ALTER TABLE festivals ADD COLUMN org_iban text;
+ALTER TABLE festivals ADD COLUMN org_insurance text;

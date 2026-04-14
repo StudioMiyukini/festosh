@@ -738,6 +738,7 @@ exhibitorRoutes.post('/edition/:editionId/apply', authMiddleware, async (c) => {
         needsWater: body.needs_water ? 1 : 0,
         specialRequests: body.special_requests || null,
         productsDescription: body.products_description || null,
+        selectedBoothId: body.selected_booth_id || null,
         status: 'submitted',
         documents: JSON.stringify(body.documents || {}),
         createdAt: now,
@@ -966,6 +967,143 @@ exhibitorRoutes.get('/images/:filename', async (c) => {
   } catch (error) {
     console.error('[exhibitors] Serve image error:', error);
     return c.json({ success: false, error: 'Failed to serve image' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /edition/:editionId/booth-config — get booth selection config
+// ---------------------------------------------------------------------------
+exhibitorRoutes.get('/edition/:editionId/booth-config', authMiddleware, async (c) => {
+  try {
+    const editionId = c.req.param('editionId');
+    const edition = db.select().from(editions).where(eq(editions.id, editionId)).get();
+    if (!edition) return c.json({ success: false, error: 'Edition not found' }, 404);
+
+    return c.json({
+      success: true,
+      data: {
+        allow_booth_selection: !!edition.allowBoothSelection,
+      },
+    });
+  } catch (error) {
+    console.error('[exhibitors] Get booth config error:', error);
+    return c.json({ success: false, error: 'Failed to get booth config' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUT /edition/:editionId/booth-config — toggle booth selection (admin)
+// ---------------------------------------------------------------------------
+exhibitorRoutes.put(
+  '/edition/:editionId/booth-config',
+  authMiddleware,
+  festivalMemberMiddleware,
+  requireFestivalRole(['owner', 'admin']),
+  async (c) => {
+    try {
+      const editionId = c.req.param('editionId');
+      const body = await c.req.json();
+
+      db.update(editions)
+        .set({ allowBoothSelection: body.allow_booth_selection ? 1 : 0 })
+        .where(eq(editions.id, editionId))
+        .run();
+
+      return c.json({ success: true, data: { message: 'Booth config updated' } });
+    } catch (error) {
+      console.error('[exhibitors] Update booth config error:', error);
+      return c.json({ success: false, error: 'Failed to update booth config' }, 500);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// PUT /applications/:id/place — admin: place/move/remove exhibitor from booth
+// ---------------------------------------------------------------------------
+exhibitorRoutes.put('/applications/:id/place', authMiddleware, festivalMemberMiddleware, requireFestivalRole(['owner', 'admin', 'editor']), async (c) => {
+  try {
+    const id = c.req.param('id');
+    const body = await c.req.json();
+    const now = Math.floor(Date.now() / 1000);
+
+    const app = db.select().from(boothApplications).where(eq(boothApplications.id, id)).get();
+    if (!app) return c.json({ success: false, error: 'Application not found' }, 404);
+
+    const boothId = body.booth_id || null; // null = remove from booth
+
+    // If assigning a booth, check it's available
+    if (boothId) {
+      const booth = db.select().from(boothLocations).where(eq(boothLocations.id, boothId)).get();
+      if (!booth) return c.json({ success: false, error: 'Booth not found' }, 404);
+
+      // Check not already assigned to another exhibitor
+      const otherApp = db.select().from(boothApplications)
+        .where(and(
+          eq(boothApplications.assignedBoothId, boothId),
+          eq(boothApplications.editionId, app.editionId),
+        ))
+        .all()
+        .find((a) => a.id !== id);
+
+      if (otherApp) {
+        return c.json({ success: false, error: 'Cet emplacement est deja attribue a un autre exposant' }, 409);
+      }
+    }
+
+    db.update(boothApplications)
+      .set({ assignedBoothId: boothId, updatedAt: now })
+      .where(eq(boothApplications.id, id))
+      .run();
+
+    return c.json({
+      success: true,
+      data: {
+        message: boothId ? 'Exposant place sur l\'emplacement' : 'Exposant retire de l\'emplacement',
+        assigned_booth_id: boothId,
+      },
+    });
+  } catch (error) {
+    console.error('[exhibitors] Place exhibitor error:', error);
+    return c.json({ success: false, error: 'Failed to place exhibitor' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /edition/:editionId/available-booths — list available booths for selection
+// ---------------------------------------------------------------------------
+exhibitorRoutes.get('/edition/:editionId/available-booths', authMiddleware, async (c) => {
+  try {
+    const editionId = c.req.param('editionId');
+
+    // Get all booths for this edition
+    const allBooths = db.select().from(boothLocations)
+      .where(eq(boothLocations.editionId, editionId))
+      .all();
+
+    // Get assigned and selected booth IDs in a single query
+    const allApps = db.select({
+      assignedId: boothApplications.assignedBoothId,
+      selectedId: boothApplications.selectedBoothId,
+    })
+      .from(boothApplications)
+      .where(eq(boothApplications.editionId, editionId))
+      .all();
+
+    const assignedIds = new Set(allApps.map((a) => a.assignedId).filter(Boolean));
+    const selectedIds = new Set(allApps.map((a) => a.selectedId).filter(Boolean));
+
+    const booths = allBooths.map((b) => {
+      const formatted = formatBoothLocation(b) as Record<string, unknown>;
+      formatted.is_assigned = assignedIds.has(b.id);
+      formatted.is_selected = selectedIds.has(b.id);
+      formatted.is_available = b.isAvailable && !assignedIds.has(b.id) && !selectedIds.has(b.id);
+      return formatted;
+    });
+
+    return c.json({ success: true, data: booths });
+  } catch (error) {
+    console.error('[exhibitors] Available booths error:', error);
+    return c.json({ success: false, error: 'Failed to list available booths' }, 500);
   }
 });
 

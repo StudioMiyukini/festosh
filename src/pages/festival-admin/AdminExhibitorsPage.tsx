@@ -476,6 +476,17 @@ export function AdminExhibitorsPage() {
     { key: 'booths', label: 'Emplacements', count: booths.length },
   ];
 
+  if (!festival || !activeEdition) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <AlertCircle className="mb-3 h-8 w-8 text-amber-500" />
+        <p className="text-sm text-muted-foreground">
+          {!festival ? 'Chargement du festival...' : 'Aucune edition active. Activez une edition dans les parametres.'}
+        </p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">

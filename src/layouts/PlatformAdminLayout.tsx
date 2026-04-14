@@ -5,6 +5,7 @@ import {
   Users,
   Tent,
   Ticket,
+  CreditCard,
   Menu,
   X,
   ArrowLeft,
@@ -26,6 +27,7 @@ const adminNavItems: NavItem[] = [
   { to: '/admin/users', label: 'Utilisateurs', icon: Users },
   { to: '/admin/festivals', label: 'Festivals', icon: Tent },
   { to: '/admin/tickets', label: 'Tickets support', icon: Ticket },
+  { to: '/admin/billing', label: 'Facturation', icon: CreditCard },
 ];
 
 export function PlatformAdminLayout() {

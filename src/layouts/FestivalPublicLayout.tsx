@@ -28,6 +28,7 @@ const DEFAULT_NAV = [
   { to: '/map', label: 'Plan' },
   { to: '/exhibitors', label: 'Exposants' },
   { to: '/apply', label: 'Candidature' },
+  { to: '/regulations', label: 'Reglements' },
 ];
 
 export function FestivalPublicLayout() {

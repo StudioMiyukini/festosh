@@ -13,9 +13,15 @@ import {
   AlertCircle,
   DollarSign,
   Activity,
+  Globe,
+  EyeOff,
+  Archive,
+  CheckCircle,
 } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
+import { AdminSetupWizard } from './AdminSetupWizard';
 import { api } from '@/lib/api-client';
+import { formatTimestamp } from '@/lib/format-utils';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -116,6 +122,11 @@ export function AdminOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [showWizard, setShowWizard] = useState(true);
+  const [festivalStatus, setFestivalStatus] = useState(festival?.status || 'draft');
+  const [editionStatus, setEditionStatus] = useState(activeEdition?.status || 'planning');
+  const [publishing, setPublishing] = useState(false);
+  const [publishMsg, setPublishMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const formatCurrency = (cents: number) =>
     new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(cents / 100);
@@ -142,6 +153,39 @@ export function AdminOverviewPage() {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  useEffect(() => {
+    if (festival) setFestivalStatus(festival.status || 'draft');
+    if (activeEdition) setEditionStatus(activeEdition.status || 'planning');
+  }, [festival, activeEdition]);
+
+  const toggleFestivalPublish = async (newStatus: string) => {
+    if (!festival) return;
+    setPublishing(true);
+    setPublishMsg(null);
+    const res = await api.put(`/festivals/${festival.id}`, { status: newStatus });
+    if (res.success) {
+      setFestivalStatus(newStatus);
+      setPublishMsg({ type: 'success', text: newStatus === 'published' ? 'Festival publie ! Il est maintenant visible dans l\'annuaire.' : newStatus === 'archived' ? 'Festival archive.' : 'Festival repasse en brouillon.' });
+    } else {
+      setPublishMsg({ type: 'error', text: res.error || 'Erreur' });
+    }
+    setPublishing(false);
+  };
+
+  const toggleEditionStatus = async (newStatus: string) => {
+    if (!activeEdition) return;
+    setPublishing(true);
+    setPublishMsg(null);
+    const res = await api.put(`/editions/${activeEdition.id}`, { status: newStatus });
+    if (res.success) {
+      setEditionStatus(newStatus);
+      setPublishMsg({ type: 'success', text: `Edition passee en "${newStatus}".` });
+    } else {
+      setPublishMsg({ type: 'error', text: res.error || 'Erreur' });
+    }
+    setPublishing(false);
+  };
 
   if (loading) {
     return (
@@ -217,14 +261,121 @@ export function AdminOverviewPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Vue d&apos;ensemble
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tableau de bord de votre festival.
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Vue d&apos;ensemble
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tableau de bord de votre festival.
+          </p>
+        </div>
       </div>
+
+      {/* ── Publication Banner ────────────────────────────────────────── */}
+      {publishMsg && (
+        <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${publishMsg.type === 'success' ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400' : 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400'}`}>
+          {publishMsg.text}
+        </div>
+      )}
+
+      <div className="mb-8 grid gap-4 sm:grid-cols-2">
+        {/* Festival status */}
+        <div className={`rounded-xl border p-5 ${festivalStatus === 'published' ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/10' : festivalStatus === 'archived' ? 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/10' : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/10'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {festivalStatus === 'published' ? (
+                <Globe className="h-5 w-5 text-green-600 dark:text-green-400" />
+              ) : festivalStatus === 'archived' ? (
+                <Archive className="h-5 w-5 text-gray-500" />
+              ) : (
+                <EyeOff className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              )}
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Festival : {festivalStatus === 'published' ? 'Publie' : festivalStatus === 'archived' ? 'Archive' : 'Brouillon'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {festivalStatus === 'published' ? 'Visible dans l\'annuaire et sur la carte' : festivalStatus === 'archived' ? 'Masque de l\'annuaire' : 'Non visible publiquement'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {festivalStatus !== 'published' && (
+                <button
+                  type="button"
+                  disabled={publishing}
+                  onClick={() => toggleFestivalPublish('published')}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
+                >
+                  {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                  Publier
+                </button>
+              )}
+              {festivalStatus === 'published' && (
+                <button
+                  type="button"
+                  disabled={publishing}
+                  onClick={() => toggleFestivalPublish('draft')}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-accent disabled:opacity-50"
+                >
+                  <EyeOff className="h-3.5 w-3.5" />
+                  Depublier
+                </button>
+              )}
+              {festivalStatus !== 'archived' && (
+                <button
+                  type="button"
+                  disabled={publishing}
+                  onClick={() => toggleFestivalPublish('archived')}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-accent disabled:opacity-50"
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Edition status */}
+        {activeEdition && (
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Edition : {activeEdition.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Statut : <span className="font-medium">{editionStatus}</span>
+                </p>
+              </div>
+              <select
+                value={editionStatus}
+                disabled={publishing}
+                onChange={(e) => toggleEditionStatus(e.target.value)}
+                className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="planning">Planification</option>
+                <option value="registration_open">Inscriptions ouvertes</option>
+                <option value="registration_closed">Inscriptions fermees</option>
+                <option value="upcoming">A venir</option>
+                <option value="ongoing">En cours</option>
+                <option value="completed">Termine</option>
+                <option value="cancelled">Annule</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Setup Wizard */}
+      {showWizard && festival && activeEdition && (
+        <AdminSetupWizard
+          festival={festival}
+          activeEdition={activeEdition}
+          onComplete={() => { setShowWizard(false); fetchStats(); }}
+        />
+      )}
 
       {/* Stats Cards */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

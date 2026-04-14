@@ -55,6 +55,11 @@ import { workspaceSheetRoutes } from './routes/workspace-sheets.js';
 import { workspaceCalendarRoutes } from './routes/workspace-calendar.js';
 import { workspaceTaskRoutes } from './routes/workspace-tasks.js';
 import { surveyRoutes } from './routes/surveys.js';
+import { subscriptionRoutes } from './routes/subscriptions.js';
+import { billingRoutes } from './routes/billing.js';
+import { mediaRoutes } from './routes/media.js';
+import { regulationRoutes } from './routes/regulations.js';
+import { volunteerHubRoutes } from './routes/volunteer-hub.js';
 
 // ---------------------------------------------------------------------------
 // Create the Hono app
@@ -105,6 +110,9 @@ app.use('*', cors({
     if (ALLOWED_ORIGINS.includes(origin)) return origin;
     // Allow specific subdomains only (not wildcard)
     const ALLOWED_SUBDOMAIN_PATTERNS = [
+      /^https:\/\/festosh\.net$/,
+      /^https:\/\/www\.festosh\.net$/,
+      /^https:\/\/[a-z0-9-]+\.festosh\.net$/,
       /^https:\/\/festosh\.miyukini\.com$/,
       /^https:\/\/[a-z0-9-]+\.miyukini\.com$/,
       /^https:\/\/festosh\.miyukini-home\.org$/,
@@ -199,6 +207,11 @@ app.route('/api/workspace-sheets', workspaceSheetRoutes);
 app.route('/api/workspace-calendar', workspaceCalendarRoutes);
 app.route('/api/workspace-tasks', workspaceTaskRoutes);
 app.route('/api/surveys', surveyRoutes);
+app.route('/api/subscriptions', subscriptionRoutes);
+app.route('/api/billing', billingRoutes);
+app.route('/api/media', mediaRoutes);
+app.route('/api/regulations', regulationRoutes);
+app.route('/api/volunteer-hub', volunteerHubRoutes);
 
 // ---------------------------------------------------------------------------
 // 404 fallback

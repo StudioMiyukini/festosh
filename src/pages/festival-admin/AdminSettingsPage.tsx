@@ -26,6 +26,7 @@ import {
   Search,
   Check,
   ExternalLink,
+  Building,
 } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
 import { api } from '@/lib/api-client';
@@ -81,6 +82,17 @@ export function AdminSettingsPage() {
   const [locationAddress, setLocationAddress] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [status, setStatus] = useState<FestivalStatus>('draft');
+
+  // Organizer identity
+  const [orgName, setOrgName] = useState('');
+  const [orgType, setOrgType] = useState('');
+  const [orgSiret, setOrgSiret] = useState('');
+  const [orgRna, setOrgRna] = useState('');
+  const [orgAddress, setOrgAddress] = useState('');
+  const [orgPhone, setOrgPhone] = useState('');
+  const [orgEmail, setOrgEmail] = useState('');
+  const [orgIban, setOrgIban] = useState('');
+  const [orgInsurance, setOrgInsurance] = useState('');
 
   // Theme
   const [primaryColor, setPrimaryColor] = useState('#6366f1');
@@ -151,6 +163,15 @@ export function AdminSettingsPage() {
     setFacebook(festival.social_links?.facebook || '');
     setTwitter(festival.social_links?.twitter || '');
     setDiscord(festival.social_links?.discord || '');
+    setOrgName(festival.org_name || '');
+    setOrgType(festival.org_type || '');
+    setOrgSiret(festival.org_siret || '');
+    setOrgRna(festival.org_rna || '');
+    setOrgAddress(festival.org_address || '');
+    setOrgPhone(festival.org_phone || '');
+    setOrgEmail(festival.org_email || '');
+    setOrgIban(festival.org_iban || '');
+    setOrgInsurance(festival.org_insurance || '');
   }, [festival]);
 
   // Initialize edition fields
@@ -271,6 +292,15 @@ export function AdminSettingsPage() {
         twitter: twitter.trim() || undefined,
         discord: discord.trim() || undefined,
       },
+      org_name: orgName.trim() || null,
+      org_type: orgType || null,
+      org_siret: orgSiret.trim() || null,
+      org_rna: orgRna.trim() || null,
+      org_address: orgAddress.trim() || null,
+      org_phone: orgPhone.trim() || null,
+      org_email: orgEmail.trim() || null,
+      org_iban: orgIban.trim() || null,
+      org_insurance: orgInsurance.trim() || null,
     });
     if (res.success) {
       setMessage({ type: 'success', text: 'Parametres enregistres avec succes.' });
@@ -627,6 +657,78 @@ export function AdminSettingsPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Organizer Identity */}
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
+                <Building className="h-5 w-5" />
+                Identification de l'organisateur
+              </h2>
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">Nom de l'entite <span className="text-destructive">*</span></label>
+                    <input type="text" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Association / Societe / Mairie..."
+                      className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">Type <span className="text-destructive">*</span></label>
+                    <select value={orgType} onChange={(e) => setOrgType(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
+                      <option value="">Selectionner</option>
+                      <option value="association">Association</option>
+                      <option value="societe">Societe (SAS, SARL, EURL...)</option>
+                      <option value="micro">Micro-entreprise</option>
+                      <option value="mairie">Mairie</option>
+                      <option value="departement">Departement</option>
+                      <option value="region">Region</option>
+                      <option value="public">Autre entite publique</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">SIRET <span className="text-destructive">*</span></label>
+                    <input type="text" value={orgSiret} onChange={(e) => setOrgSiret(e.target.value)} placeholder="123 456 789 00012"
+                      className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">RNA (associations)</label>
+                    <input type="text" value={orgRna} onChange={(e) => setOrgRna(e.target.value)} placeholder="W123456789"
+                      className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Adresse du siege <span className="text-destructive">*</span></label>
+                  <input type="text" value={orgAddress} onChange={(e) => setOrgAddress(e.target.value)} placeholder="12 rue de la Convention, 75015 Paris"
+                    className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">Email de contact <span className="text-destructive">*</span></label>
+                    <input type="email" value={orgEmail} onChange={(e) => setOrgEmail(e.target.value)} placeholder="contact@organisation.fr"
+                      className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">Telephone de contact</label>
+                    <input type="tel" value={orgPhone} onChange={(e) => setOrgPhone(e.target.value)} placeholder="01 23 45 67 89"
+                      className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">IBAN</label>
+                    <input type="text" value={orgIban} onChange={(e) => setOrgIban(e.target.value)} placeholder="FR76 1234 5678 9012 3456 7890 123"
+                      className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">Assurance</label>
+                    <input type="text" value={orgInsurance} onChange={(e) => setOrgInsurance(e.target.value)} placeholder="N° contrat / assureur"
+                      className="w-full rounded-md border border-border bg-background py-2.5 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Social Links */}

@@ -688,4 +688,119 @@ cmsRoutes.put(
   },
 );
 
+// ---------------------------------------------------------------------------
+// POST /festival/:festivalId/generate-system-pages — auto-create essential pages
+// ---------------------------------------------------------------------------
+cmsRoutes.post(
+  '/festival/:festivalId/generate-system-pages',
+  authMiddleware,
+  festivalMemberMiddleware,
+  requireFestivalRole(['owner', 'admin']),
+  async (c) => {
+    try {
+      const festivalId = c.req.param('festivalId');
+      const userId = c.get('userId');
+      const now = Math.floor(Date.now() / 1000);
+
+      const systemPages = [
+        { title: 'Accueil', slug: 'accueil', sortOrder: 0, content: [
+          { id: crypto.randomUUID(), type: 'hero', content: { title: 'Bienvenue', subtitle: 'Decouvrez notre festival', background_image_url: '' }, sort_order: 0, is_visible: true },
+          { id: crypto.randomUUID(), type: 'text', content: { body: 'Bienvenue sur le site de notre festival. Retrouvez ici toutes les informations pratiques.' }, sort_order: 1, is_visible: true },
+        ]},
+        { title: 'Exposants', slug: 'exposants', sortOrder: 1, content: [
+          { id: crypto.randomUUID(), type: 'text', content: { body: '# Nos exposants\n\nDecouvrez les exposants qui seront presents lors de notre prochain evenement.' }, sort_order: 0, is_visible: true },
+          { id: crypto.randomUUID(), type: 'exhibitor_list', content: {}, sort_order: 1, is_visible: true },
+        ]},
+        { title: 'Candidature', slug: 'candidature', sortOrder: 2, content: [
+          { id: crypto.randomUUID(), type: 'text', content: { body: '# Candidature exposant\n\nVous souhaitez participer en tant qu\'exposant ? Remplissez le formulaire ci-dessous.' }, sort_order: 0, is_visible: true },
+        ]},
+        { title: 'Programme', slug: 'programme', sortOrder: 3, content: [
+          { id: crypto.randomUUID(), type: 'text', content: { body: '# Programme\n\nLe programme sera bientot disponible.' }, sort_order: 0, is_visible: true },
+          { id: crypto.randomUUID(), type: 'schedule', content: {}, sort_order: 1, is_visible: true },
+        ]},
+        { title: 'Informations pratiques', slug: 'infos', sortOrder: 4, content: [
+          { id: crypto.randomUUID(), type: 'text', content: { body: '# Informations pratiques\n\n## Acces\nAdresse du lieu, transports en commun, parking.\n\n## Horaires\nConsultez les horaires d\'ouverture.\n\n## Tarifs\nConsultez la billetterie pour les tarifs.' }, sort_order: 0, is_visible: true },
+          { id: crypto.randomUUID(), type: 'map', content: {}, sort_order: 1, is_visible: true },
+        ]},
+      ];
+
+      let created = 0;
+      for (const page of systemPages) {
+        // Check if page with this slug already exists
+        const existing = db.select().from(cmsPages)
+          .where(and(eq(cmsPages.festivalId, festivalId), eq(cmsPages.slug, page.slug)))
+          .get();
+        if (existing) continue;
+
+        const pageId = crypto.randomUUID();
+        db.insert(cmsPages).values({
+          id: pageId,
+          festivalId,
+          title: page.title,
+          slug: page.slug,
+          isPublished: 1,
+          isSystem: 1,
+          sortOrder: page.sortOrder,
+          createdAt: now,
+          updatedAt: now,
+        }).run();
+
+        // Create blocks
+        for (const block of page.content) {
+          db.insert(cmsBlocks).values({
+            id: block.id,
+            pageId,
+            blockType: block.type,
+            content: JSON.stringify(block.content),
+            sortOrder: block.sort_order,
+            isVisible: 1,
+            createdAt: now,
+            updatedAt: now,
+          }).run();
+        }
+
+        created++;
+      }
+
+      // Create default navigation if none exists
+      const existingNav = db.select().from(cmsNavigation)
+        .where(eq(cmsNavigation.festivalId, festivalId))
+        .all();
+
+      if (existingNav.length === 0) {
+        const navItems = [
+          { label: 'Accueil', linkType: 'internal', target: '/', sortOrder: 0 },
+          { label: 'Programme', linkType: 'internal', target: '/schedule', sortOrder: 1 },
+          { label: 'Plan', linkType: 'internal', target: '/map', sortOrder: 2 },
+          { label: 'Exposants', linkType: 'internal', target: '/exhibitors', sortOrder: 3 },
+          { label: 'Candidature', linkType: 'internal', target: '/apply', sortOrder: 4 },
+          { label: 'Reglements', linkType: 'internal', target: '/regulations', sortOrder: 5 },
+        ];
+
+        for (const item of navItems) {
+          db.insert(cmsNavigation).values({
+            id: crypto.randomUUID(),
+            festivalId,
+            label: item.label,
+            linkType: item.linkType,
+            target: item.target,
+            sortOrder: item.sortOrder,
+            isVisible: 1,
+            createdAt: now,
+            updatedAt: now,
+          }).run();
+        }
+      }
+
+      return c.json({
+        success: true,
+        data: { pages_created: created, message: `${created} pages generees` },
+      }, 201);
+    } catch (error) {
+      console.error('[cms] Generate system pages error:', error);
+      return c.json({ success: false, error: 'Failed to generate system pages' }, 500);
+    }
+  },
+);
+
 export { cmsRoutes };

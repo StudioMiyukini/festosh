@@ -14,7 +14,7 @@ export default defineConfig({
     port: 3002,
     strictPort: true,
     host: true,
-    allowedHosts: ['festosh.miyukini-home.org'],
+    allowedHosts: ['festosh.miyukini-home.org', 'festosh.net', 'www.festosh.net'],
     hmr: false,
     proxy: {
       '/api': {

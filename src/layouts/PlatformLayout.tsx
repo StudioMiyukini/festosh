@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogIn, LogOut, ChevronDown, Shield, MessageSquare, Store, Sparkles } from 'lucide-react';
+import { Menu, X, User, LogIn, LogOut, ChevronDown, Shield, MessageSquare, Store, Sparkles, CreditCard, Heart, CalendarDays } from 'lucide-react';
 import { Logo } from '@/components/shared/Logo';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAuth } from '@/hooks/use-auth';
@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { to: '/directory', label: 'Festivals' },
   { to: '/exhibitors', label: 'Exposants' },
   { to: '/dashboard', label: 'Dashboard' },
+  { to: '/pricing', label: 'Tarifs' },
   { to: '/docs', label: 'Documentation' },
 ];
 
@@ -100,40 +101,33 @@ export function PlatformLayout() {
                       <User className="h-4 w-4" />
                       Mon profil
                     </Link>
-                    <Link
-                      to="/visitor"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Mon espace visiteur
+                    <div className="border-t border-border my-1" />
+                    <Link to="/visitor" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent">
+                      <Sparkles className="h-4 w-4" /> Espace visiteur
                     </Link>
-                    <Link
-                      to="/messaging"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      Messagerie
+                    <Link to="/volunteer" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent">
+                      <Heart className="h-4 w-4" /> Espace benevole
                     </Link>
-                    {(profile?.user_type === 'exhibitor' || profile?.user_type === 'organizer') && (
-                      <Link
-                        to="/exhibitor"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
-                      >
-                        <Store className="h-4 w-4" />
-                        Espace exposant
+                    <Link to="/exhibitor" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent">
+                      <Store className="h-4 w-4" /> Espace exposant
+                    </Link>
+                    {(profile?.platform_role === 'organizer' || profile?.platform_role === 'admin') && (
+                      <Link to="/organizer" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent">
+                        <CalendarDays className="h-4 w-4" /> Espace organisateur
+                      </Link>
+                    )}
+                    <div className="border-t border-border my-1" />
+                    <Link to="/messaging" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent">
+                      <MessageSquare className="h-4 w-4" /> Messagerie
+                    </Link>
+                    {(profile?.platform_role === 'organizer' || profile?.platform_role === 'admin') && (
+                      <Link to="/billing" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent">
+                        <CreditCard className="h-4 w-4" /> Facturation
                       </Link>
                     )}
                     {profile?.platform_role === 'admin' && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
-                      >
-                        <Shield className="h-4 w-4" />
-                        Administration
+                      <Link to="/admin" onClick={() => setUserMenuOpen(false)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent">
+                        <Shield className="h-4 w-4" /> Administration
                       </Link>
                     )}
                     <button
@@ -206,40 +200,31 @@ export function PlatformLayout() {
                       <User className="h-4 w-4" />
                       Mon profil
                     </Link>
-                    <Link
-                      to="/visitor"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Mon espace visiteur
+                    <Link to="/visitor" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">
+                      <Sparkles className="h-4 w-4" /> Espace visiteur
                     </Link>
-                    <Link
-                      to="/messaging"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      Messagerie
+                    <Link to="/volunteer" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">
+                      <Heart className="h-4 w-4" /> Espace benevole
                     </Link>
-                    {(profile?.user_type === 'exhibitor' || profile?.user_type === 'organizer') && (
-                      <Link
-                        to="/exhibitor"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
-                      >
-                        <Store className="h-4 w-4" />
-                        Espace exposant
+                    <Link to="/exhibitor" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">
+                      <Store className="h-4 w-4" /> Espace exposant
+                    </Link>
+                    {(profile?.platform_role === 'organizer' || profile?.platform_role === 'admin') && (
+                      <Link to="/organizer" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">
+                        <CalendarDays className="h-4 w-4" /> Espace organisateur
+                      </Link>
+                    )}
+                    <Link to="/messaging" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">
+                      <MessageSquare className="h-4 w-4" /> Messagerie
+                    </Link>
+                    {(profile?.platform_role === 'organizer' || profile?.platform_role === 'admin') && (
+                      <Link to="/billing" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">
+                        <CreditCard className="h-4 w-4" /> Facturation
                       </Link>
                     )}
                     {profile?.platform_role === 'admin' && (
-                      <Link
-                        to="/admin"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
-                      >
-                        <Shield className="h-4 w-4" />
-                        Administration
+                      <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">
+                        <Shield className="h-4 w-4" /> Administration
                       </Link>
                     )}
                     <button

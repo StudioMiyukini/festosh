@@ -39,6 +39,7 @@ function formatEdition(e: typeof editions.$inferSelect) {
     max_exhibitors: e.maxExhibitors,
     max_volunteers: e.maxVolunteers,
     visitor_hours: safeParseJson(e.visitorHours, {}),
+    allow_booth_selection: !!e.allowBoothSelection,
     is_active: e.isActive,
     created_at: e.createdAt,
     updated_at: e.updatedAt,
@@ -190,6 +191,7 @@ editionRoutes.put('/:id', authMiddleware, async (c) => {
       max_exhibitors: 'maxExhibitors',
       max_volunteers: 'maxVolunteers',
       is_active: 'isActive',
+      allow_booth_selection: 'allowBoothSelection',
     };
 
     for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {

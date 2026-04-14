@@ -33,6 +33,8 @@ import {
   ShieldCheck,
   Briefcase,
   ClipboardCheck,
+  Scale,
+  ChevronDown,
 } from 'lucide-react';
 import { useFestivalContext } from '@/hooks/use-festival-context';
 import { useFestivalRole } from '@/hooks/use-festival-role';
@@ -44,39 +46,76 @@ interface NavItem {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
-  section?: string;
 }
 
-const getAdminNavItems = (slug: string): NavItem[] => [
-  { to: `/f/${slug}/admin`, label: "Vue d'ensemble", icon: LayoutDashboard },
-  { to: `/f/${slug}/admin/cms`, label: 'Contenu CMS', icon: FileText },
-  { to: `/f/${slug}/admin/programming`, label: 'Programmation', icon: Calendar },
-  { to: `/f/${slug}/admin/exhibitors`, label: 'Exposants et stands', icon: Store },
-  { to: `/f/${slug}/admin/volunteers`, label: 'Benevoles', icon: Users },
-  { to: `/f/${slug}/admin/budget`, label: 'Budget', icon: DollarSign },
-  { to: `/f/${slug}/admin/equipment`, label: 'Materiel', icon: Package },
-  { to: `/f/${slug}/admin/agenda`, label: 'Agenda', icon: Calendar },
-  { to: `/f/${slug}/admin/tasks`, label: 'Taches et reunions', icon: ClipboardList },
-  { to: `/f/${slug}/admin/floor-plan`, label: 'Plan', icon: MapPin },
-  { to: `/f/${slug}/admin/tickets`, label: 'Support', icon: Ticket },
-  { to: `/f/${slug}/admin/ticketing`, label: 'Billetterie', icon: Ticket, section: 'Commerce' },
-  { to: `/f/${slug}/admin/marketplace`, label: 'Marketplace', icon: ShoppingCart, section: 'Commerce' },
-  { to: `/f/${slug}/admin/sponsors`, label: 'Sponsors', icon: Handshake, section: 'Commerce' },
-  { to: `/f/${slug}/admin/reservations`, label: 'Reservations', icon: BookOpen, section: 'Visiteurs' },
-  { to: `/f/${slug}/admin/gamification`, label: 'Gamification', icon: Trophy, section: 'Visiteurs' },
-  { to: `/f/${slug}/admin/votes`, label: 'Votes', icon: Star, section: 'Visiteurs' },
-  { to: `/f/${slug}/admin/raffles`, label: 'Tombola', icon: Gift, section: 'Visiteurs' },
-  { to: `/f/${slug}/admin/queues`, label: 'Files d\'attente', icon: ListOrdered, section: 'Visiteurs' },
-  { to: `/f/${slug}/admin/surveys`, label: 'Questionnaires', icon: ClipboardCheck, section: 'Visiteurs' },
-  { to: `/f/${slug}/admin/artists`, label: 'Artistes', icon: Mic, section: 'Production' },
-  { to: `/f/${slug}/admin/analytics`, label: 'Analytics', icon: BarChart3, section: 'Production' },
-  { to: `/f/${slug}/admin/workspace`, label: 'Espace de travail', icon: Briefcase, section: 'Production' },
-  { to: `/f/${slug}/admin/qr-objects`, label: 'QR Codes', icon: QrCode, section: 'Production' },
-  { to: `/f/${slug}/admin/api`, label: 'API & Webhooks', icon: Key, section: 'Production' },
-  { to: `/f/${slug}/admin/roles`, label: 'Roles & permissions', icon: ShieldCheck, section: 'Parametres' },
-  { to: `/f/${slug}/admin/settings`, label: 'General', icon: Settings, section: 'Parametres' },
-  { to: `/f/${slug}/admin/settings/theme`, label: 'Theme', icon: Palette, section: 'Parametres' },
-  { to: `/f/${slug}/admin/settings/communication`, label: 'Communication', icon: Mail, section: 'Parametres' },
+interface NavSection {
+  title?: string;
+  items: NavItem[];
+  collapsible?: boolean;
+}
+
+const getAdminNav = (slug: string): NavSection[] => [
+  {
+    items: [
+      { to: `/f/${slug}/admin`, label: "Vue d'ensemble", icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: 'Festival',
+    collapsible: true,
+    items: [
+      { to: `/f/${slug}/admin/cms`, label: 'Site & Pages', icon: FileText },
+      { to: `/f/${slug}/admin/programming`, label: 'Programme', icon: Calendar },
+      { to: `/f/${slug}/admin/exhibitors`, label: 'Exposants', icon: Store },
+      { to: `/f/${slug}/admin/ticketing`, label: 'Billetterie', icon: Ticket },
+      { to: `/f/${slug}/admin/artists`, label: 'Artistes', icon: Mic },
+    ],
+  },
+  {
+    title: 'Logistique',
+    collapsible: true,
+    items: [
+      { to: `/f/${slug}/admin/budget`, label: 'Budget', icon: DollarSign },
+      { to: `/f/${slug}/admin/equipment`, label: 'Materiel', icon: Package },
+      { to: `/f/${slug}/admin/floor-plan`, label: 'Plan de salle', icon: MapPin },
+      { to: `/f/${slug}/admin/sponsors`, label: 'Sponsors', icon: Handshake },
+    ],
+  },
+  {
+    title: 'Visiteurs',
+    collapsible: true,
+    items: [
+      { to: `/f/${slug}/admin/gamification`, label: 'Gamification', icon: Trophy },
+      { to: `/f/${slug}/admin/votes`, label: 'Votes & Prix', icon: Star },
+      { to: `/f/${slug}/admin/raffles`, label: 'Tombola', icon: Gift },
+      { to: `/f/${slug}/admin/reservations`, label: 'Reservations', icon: BookOpen },
+      { to: `/f/${slug}/admin/queues`, label: 'Files d\'attente', icon: ListOrdered },
+      { to: `/f/${slug}/admin/surveys`, label: 'Questionnaires', icon: ClipboardCheck },
+      { to: `/f/${slug}/admin/qr-objects`, label: 'QR Codes', icon: QrCode },
+      { to: `/f/${slug}/admin/marketplace`, label: 'Marketplace', icon: ShoppingCart },
+    ],
+  },
+  {
+    title: 'Equipe',
+    collapsible: true,
+    items: [
+      { to: `/f/${slug}/admin/volunteers`, label: 'Benevoles', icon: Users },
+      { to: `/f/${slug}/admin/tasks`, label: 'Taches & Reunions', icon: ClipboardList },
+      { to: `/f/${slug}/admin/workspace`, label: 'Espace de travail', icon: Briefcase },
+      { to: `/f/${slug}/admin/analytics`, label: 'Statistiques', icon: BarChart3 },
+      { to: `/f/${slug}/admin/tickets`, label: 'Support', icon: Ticket },
+    ],
+  },
+  {
+    title: 'Parametres',
+    collapsible: true,
+    items: [
+      { to: `/f/${slug}/admin/settings`, label: 'General', icon: Settings },
+      { to: `/f/${slug}/admin/regulations`, label: 'Reglements', icon: Scale },
+      { to: `/f/${slug}/admin/roles`, label: 'Roles', icon: ShieldCheck },
+      { to: `/f/${slug}/admin/api`, label: 'API', icon: Key },
+    ],
+  },
 ];
 
 export function FestivalAdminLayout() {
@@ -88,7 +127,17 @@ export function FestivalAdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const navItems = getAdminNavItems(slug);
+  const navSections = getAdminNav(slug);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  const toggleSection = (title: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
+  };
 
   if (isResolving || isAuthLoading) return <LoadingScreen />;
 
@@ -157,37 +206,50 @@ export function FestivalAdminLayout() {
       </div>
 
       {/* Nav Items */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="flex flex-col gap-1">
-          {navItems.map((item, idx) => {
-            const Icon = item.icon;
-            const prevItem = navItems[idx - 1];
-            const showSection = item.section && item.section !== prevItem?.section;
+      <nav className="flex-1 overflow-y-auto px-3 py-3">
+        <div className="flex flex-col gap-0.5">
+          {navSections.map((section, sIdx) => {
+            const isCollapsed = section.collapsible && collapsedSections.has(section.title || '');
+            const sectionHasActive = section.items.some((item) => isActive(item.to));
+
             return (
-              <li key={item.to}>
-                {showSection && (
-                  <p className="mb-1 mt-4 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    {item.section}
-                  </p>
+              <div key={sIdx}>
+                {section.title && (
+                  <button
+                    type="button"
+                    onClick={() => section.collapsible && toggleSection(section.title!)}
+                    className={`mt-3 mb-0.5 flex w-full items-center justify-between px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${
+                      sectionHasActive ? 'text-primary' : 'text-muted-foreground/60'
+                    } ${section.collapsible ? 'cursor-pointer hover:text-muted-foreground' : 'cursor-default'}`}
+                  >
+                    {section.title}
+                    {section.collapsible && (
+                      <ChevronDown className={`h-3 w-3 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                    )}
+                  </button>
                 )}
-                <Link
-                  to={item.to}
-                  onClick={onClose}
-                  className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    item.section ? 'pl-5' : ''
-                  } ${
-                    isActive(item.to)
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  }`}
-                >
-                  <Icon className="h-4 w-4 flex-shrink-0" />
-                  {item.label}
-                </Link>
-              </li>
+                {!isCollapsed && section.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={onClose}
+                      className={`flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                        isActive(item.to)
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
-        </ul>
+        </div>
       </nav>
 
       {/* User Info + Logout */}

@@ -3,7 +3,7 @@
  */
 
 import { Hono } from 'hono';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
 import { geocodeAddress, buildGeoQuery } from '../lib/geocode.js';
@@ -18,6 +18,8 @@ import {
   shiftAssignments,
   budgetEntries,
   cmsPages,
+  regulations,
+  boothTypes,
 } from '../db/schema.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole } from '../middleware/festival-auth.js';
@@ -237,6 +239,15 @@ festivalRoutes.put(
         text_color: 'themeTextColor',
         custom_css: 'customCss',
         header_style: 'headerStyle',
+        org_name: 'orgName',
+        org_type: 'orgType',
+        org_siret: 'orgSiret',
+        org_rna: 'orgRna',
+        org_address: 'orgAddress',
+        org_phone: 'orgPhone',
+        org_email: 'orgEmail',
+        org_iban: 'orgIban',
+        org_insurance: 'orgInsurance',
       };
 
       for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
@@ -738,6 +749,50 @@ festivalRoutes.post('/geocode-all', authMiddleware, requireRole(['admin']), asyn
   } catch (error) {
     console.error('[festivals] Geocode all error:', error);
     return c.json({ success: false, error: 'Failed to geocode festivals' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/setup-status — check setup wizard progress
+// ---------------------------------------------------------------------------
+festivalRoutes.get('/:id/setup-status', authMiddleware, festivalMemberMiddleware, async (c) => {
+  try {
+    const festivalId = c.req.param('id');
+
+    const festival = db.select().from(festivals).where(eq(festivals.id, festivalId)).get();
+    if (!festival) return c.json({ success: false, error: 'Not found' }, 404);
+
+    // Count system pages
+    const pagesCount = db.select({ count: sql`count(*)` }).from(cmsPages)
+      .where(eq(cmsPages.festivalId, festivalId)).get() as any;
+
+    // Count regulations
+    const regsCount = db.select({ count: sql`count(*)` }).from(regulations)
+      .where(eq(regulations.festivalId, festivalId)).get() as any;
+
+    // Count booth types for active edition
+    const activeEd = db.select().from(editions).where(and(eq(editions.festivalId, festivalId), eq(editions.isActive, 1))).get();
+    let boothTypesCount = 0;
+    if (activeEd) {
+      const btc = db.select({ count: sql`count(*)` }).from(boothTypes)
+        .where(eq(boothTypes.editionId, activeEd.id)).get() as any;
+      boothTypesCount = btc?.count ?? 0;
+    }
+
+    return c.json({
+      success: true,
+      data: {
+        has_info: !!(festival.name && festival.city),
+        has_org: !!(festival.orgName && festival.orgSiret && festival.orgEmail),
+        system_pages_count: pagesCount?.count ?? 0,
+        regulations_count: regsCount?.count ?? 0,
+        booth_types_count: boothTypesCount,
+        is_published: festival.status === 'published',
+      },
+    });
+  } catch (error) {
+    console.error('[festivals] Setup status error:', error);
+    return c.json({ success: false, error: 'Failed to get setup status' }, 500);
   }
 });
 
