@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 import {
   ChevronDown,
   CalendarDays,
@@ -120,7 +121,7 @@ function TextBlock({ content }: { content: TextBlockContent }) {
     <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
       <div
         className="prose prose-neutral max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: content.body }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content.body || '') }}
       />
     </section>
   );
@@ -219,8 +220,10 @@ function VideoBlock({ content }: { content: VideoBlockContent }) {
             src={embedUrl}
             title="Video"
             className="absolute inset-0 h-full w-full"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+            referrerPolicy="no-referrer"
           />
         </div>
       ) : (
@@ -261,7 +264,9 @@ function MapBlock({ content }: { content: MapBlockContent }) {
           width="100%"
           height="400"
           className="border-0"
+          sandbox="allow-same-origin allow-scripts"
           loading="lazy"
+          referrerPolicy="no-referrer"
           style={{ minHeight: `${Math.min(zoom * 30, 500)}px` }}
         />
       </div>
@@ -526,7 +531,7 @@ function CountdownBlock({ content }: { content: CountdownBlockContent }) {
 function CustomHtmlBlock({ content }: { content: CustomHtmlBlockContent }) {
   return (
     <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-      <div dangerouslySetInnerHTML={{ __html: content.html }} />
+      <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content.html || '') }} />
     </section>
   );
 }
@@ -557,7 +562,7 @@ function ImageTextBlock({ content }: { content: ImageTextBlockContent }) {
       )}
       <div
         className="prose prose-neutral max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: content.body }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content.body || '') }}
       />
     </div>
   );
@@ -950,7 +955,7 @@ function TabsBlock({ content }: { content: TabsBlockContent }) {
       <div className="mt-4">
         <div
           className="prose prose-neutral max-w-none dark:prose-invert"
-          dangerouslySetInnerHTML={{ __html: tabs[activeTab]?.body ?? '' }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(tabs[activeTab]?.body ?? '') }}
         />
       </div>
     </section>

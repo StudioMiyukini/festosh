@@ -332,13 +332,26 @@ export function RichTextEditor({
     exec('unlink');
   };
 
-  // ---------- Image handling ----------
+  // ---------- Image handling (DOM API to prevent XSS) ----------
   const handleImageSubmit = (url: string, alt: string) => {
     setShowImageDialog(false);
     editorRef.current?.focus();
 
-    const img = `<img src="${url}" alt="${alt}" style="max-width:100%;height:auto;border-radius:0.5rem;margin:0.5rem 0;" />`;
-    exec('insertHTML', img);
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = alt;
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.borderRadius = '0.5rem';
+    img.style.margin = '0.5rem 0';
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(img);
+      range.collapse(false);
+    }
   };
 
   // ---------- Keyboard shortcuts ----------

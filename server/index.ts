@@ -10,6 +10,7 @@ import { logger } from 'hono/logger';
 import type { MiddlewareHandler } from 'hono';
 
 import { initializeDatabase } from './db/index.js';
+import { startBackupSchedule } from './lib/backup.js';
 
 import { authRoutes } from './routes/auth.js';
 import { festivalRoutes } from './routes/festivals.js';
@@ -237,21 +238,24 @@ try {
   initializeDatabase();
   console.log('[db] Database initialized successfully');
 
-  // Cleanup expired token blacklist entries on startup
+  // Cleanup expired token blacklist entries on startup (parameterized)
   const { sqlite } = await import('./db/index.js');
-  const now = Math.floor(Date.now() / 1000);
-  sqlite.exec(`DELETE FROM token_blacklist WHERE expires_at < ${now}`);
+  const cleanupStmt = sqlite.prepare('DELETE FROM token_blacklist WHERE expires_at < ?');
+  cleanupStmt.run(Math.floor(Date.now() / 1000));
   console.log('[security] Expired token blacklist entries cleaned up');
+
+  // Start automatic daily database backups with redundancy
+  startBackupSchedule();
 } catch (error) {
   console.error('[db] Failed to initialize database:', error);
   process.exit(1);
 }
 
-// Periodic token blacklist cleanup (every 6 hours)
+// Periodic token blacklist cleanup (every 6 hours, parameterized)
 setInterval(() => {
   try {
-    const { sqlite: db } = require('./db/index.js');
-    db.exec(`DELETE FROM token_blacklist WHERE expires_at < ${Math.floor(Date.now() / 1000)}`);
+    const { sqlite: sdb } = require('./db/index.js');
+    sdb.prepare('DELETE FROM token_blacklist WHERE expires_at < ?').run(Math.floor(Date.now() / 1000));
   } catch { /* ignore */ }
 }, 6 * 60 * 60 * 1000);
 

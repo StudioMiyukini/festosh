@@ -1,6 +1,6 @@
 /**
  * AES-256-GCM encryption for sensitive data at rest.
- * Used for encrypting PII fields like email, contact info in the database.
+ * Uses PBKDF2 key derivation with deployment-specific salt.
  */
 
 import crypto from 'crypto';
@@ -9,19 +9,32 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 const KEY_LENGTH = 32; // 256 bits
+const PBKDF2_ITERATIONS = 200000; // OWASP recommended minimum
 
-// Derive a proper 256-bit key from the secret
+// Derive a proper 256-bit key from the secret with deployment-specific salt
+let _cachedKey: Buffer | null = null;
+
 function getEncryptionKey(): Buffer {
+  if (_cachedKey) return _cachedKey;
+
   const secret = process.env.ENCRYPTION_KEY;
+  const env = process.env.NODE_ENV || 'development';
+
   if (!secret || secret.length < 32) {
-    const env = process.env.NODE_ENV || 'development';
     if (env === 'production') {
       throw new Error('[SECURITY] ENCRYPTION_KEY must be at least 32 characters and separate from JWT_SECRET');
     }
     console.warn('[SECURITY] ENCRYPTION_KEY not set or too short — using fallback for development only.');
-    return crypto.pbkdf2Sync('festosh-dev-encryption-key-DO-NOT-USE-IN-PROD', 'festosh-salt-v1', 100000, KEY_LENGTH, 'sha512');
+    _cachedKey = crypto.pbkdf2Sync('festosh-dev-encryption-key-DO-NOT-USE-IN-PROD', 'festosh-dev-salt', PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
+    return _cachedKey;
   }
-  return crypto.pbkdf2Sync(secret, 'festosh-salt-v1', 100000, KEY_LENGTH, 'sha512');
+
+  // Use ENCRYPTION_KEY itself to derive a unique salt via HMAC (no hardcoded salt)
+  const saltInput = process.env.ENCRYPTION_SALT || secret.slice(0, 16);
+  const salt = crypto.createHmac('sha256', 'festosh-key-derivation-v2').update(saltInput).digest();
+
+  _cachedKey = crypto.pbkdf2Sync(secret, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
+  return _cachedKey;
 }
 
 /**
@@ -37,7 +50,6 @@ export function encrypt(plaintext: string): string {
   encrypted += cipher.final('base64');
   const authTag = cipher.getAuthTag();
 
-  // Combine iv + authTag + ciphertext for storage
   return `${iv.toString('base64')}:${authTag.toString('base64')}:${encrypted}`;
 }
 
@@ -46,14 +58,20 @@ export function encrypt(plaintext: string): string {
  */
 export function decrypt(encryptedData: string): string {
   const key = getEncryptionKey();
-  const [ivB64, authTagB64, ciphertext] = encryptedData.split(':');
+  const parts = encryptedData.split(':');
 
-  if (!ivB64 || !authTagB64 || !ciphertext) {
+  if (parts.length !== 3) {
     throw new Error('Invalid encrypted data format');
   }
 
+  const [ivB64, authTagB64, ciphertext] = parts;
   const iv = Buffer.from(ivB64, 'base64');
   const authTag = Buffer.from(authTagB64, 'base64');
+
+  if (iv.length !== IV_LENGTH || authTag.length !== AUTH_TAG_LENGTH) {
+    throw new Error('Invalid IV or auth tag length');
+  }
+
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(authTag);
 
@@ -67,7 +85,6 @@ export function decrypt(encryptedData: string): string {
  * Uses HMAC-SHA256 — deterministic but not reversible.
  */
 export function hmacHash(value: string): string {
-  // Use derived key for HMAC, not raw env var
   const key = getEncryptionKey();
   return crypto.createHmac('sha256', key).update(value.toLowerCase().trim()).digest('hex');
 }

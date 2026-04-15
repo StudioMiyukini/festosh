@@ -513,4 +513,35 @@ platformAdminRoutes.get('/tickets', async (c) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// GET /backups — list database backups (admin only)
+// ---------------------------------------------------------------------------
+platformAdminRoutes.get('/backups', async (c) => {
+  try {
+    const { listBackups } = await import('../lib/backup.js');
+    const backups = listBackups();
+    return c.json({ success: true, data: backups });
+  } catch (error) {
+    console.error('[admin] List backups error:', error);
+    return c.json({ success: false, error: 'Failed to list backups' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /backups — trigger a manual backup (admin only)
+// ---------------------------------------------------------------------------
+platformAdminRoutes.post('/backups', async (c) => {
+  try {
+    const { performBackupSync } = await import('../lib/backup.js');
+    const result = performBackupSync();
+    if (result.success) {
+      return c.json({ success: true, data: { message: 'Backup created', path: result.path, checksum: result.checksum } }, 201);
+    }
+    return c.json({ success: false, error: result.error || 'Backup failed' }, 500);
+  } catch (error) {
+    console.error('[admin] Manual backup error:', error);
+    return c.json({ success: false, error: 'Failed to create backup' }, 500);
+  }
+});
+
 export { platformAdminRoutes };

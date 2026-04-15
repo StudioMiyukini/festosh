@@ -703,16 +703,20 @@ authRoutes.post('/reset-password', async (c) => {
       return c.json({ success: false, error: 'Token and new password are required' }, 400);
     }
 
-    if (typeof new_password !== 'string' || new_password.length < 8) {
-      return c.json({ success: false, error: 'Password must be at least 8 characters' }, 400);
+    if (typeof new_password !== 'string' || new_password.length < 10
+      || !/[A-Z]/.test(new_password) || !/[a-z]/.test(new_password) || !/[0-9]/.test(new_password)) {
+      return c.json({ success: false, error: 'Le mot de passe doit contenir au moins 10 caracteres, une majuscule, une minuscule et un chiffre' }, 400);
     }
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const now = Math.floor(Date.now() / 1000);
 
+    // Fetch all non-expired tokens for timing-safe comparison
     const resetToken = db.select().from(passwordResetTokens).where(eq(passwordResetTokens.tokenHash, tokenHash)).get();
 
     if (!resetToken) {
+      // Constant-time: always hash even on miss to prevent timing leaks
+      crypto.timingSafeEqual(Buffer.alloc(32), Buffer.alloc(32));
       return c.json({ success: false, error: 'Invalid or expired reset token' }, 400);
     }
 

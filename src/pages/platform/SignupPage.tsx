@@ -80,7 +80,10 @@ export function SignupPage() {
     if (!email.trim()) e.email = "L'adresse email est requise.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Email invalide.";
     if (!password) e.password = 'Le mot de passe est requis.';
-    else if (password.length < 8) e.password = 'Minimum 8 caracteres.';
+    else if (password.length < 10) e.password = 'Minimum 10 caracteres.';
+    else if (!/[A-Z]/.test(password)) e.password = 'Doit contenir une majuscule.';
+    else if (!/[a-z]/.test(password)) e.password = 'Doit contenir une minuscule.';
+    else if (!/[0-9]/.test(password)) e.password = 'Doit contenir un chiffre.';
     if (password !== confirmPassword) e.confirmPassword = 'Les mots de passe ne correspondent pas.';
     setErrors(e);
     return Object.keys(e).length === 0;

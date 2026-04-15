@@ -150,9 +150,18 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 // ---------------------------------------------------------------------------
-// Rate limiter — in-memory sliding window per IP
+// Rate limiter — bounded in-memory sliding window per IP
 // ---------------------------------------------------------------------------
+const MAX_RATE_LIMIT_ENTRIES = 50000;
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+// Periodic cleanup every 5 minutes to prevent memory exhaustion
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of rateLimitStore) {
+    if (now > v.resetAt) rateLimitStore.delete(k);
+  }
+}, 5 * 60 * 1000);
 
 export function rateLimit(opts: { windowMs: number; max: number }): MiddlewareHandler {
   return async (c, next) => {
@@ -164,19 +173,17 @@ export function rateLimit(opts: { windowMs: number; max: number }): MiddlewareHa
 
     const entry = rateLimitStore.get(key);
     if (!entry || now > entry.resetAt) {
+      // Evict oldest entries if map is full (FIFO protection against DoS)
+      if (rateLimitStore.size >= MAX_RATE_LIMIT_ENTRIES) {
+        const firstKey = rateLimitStore.keys().next().value;
+        if (firstKey) rateLimitStore.delete(firstKey);
+      }
       rateLimitStore.set(key, { count: 1, resetAt: now + opts.windowMs });
     } else {
       entry.count++;
       if (entry.count > opts.max) {
         c.header('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
         return c.json({ success: false, error: 'Too many requests. Please try again later.' }, 429);
-      }
-    }
-
-    // Periodic cleanup (every 1000 requests)
-    if (rateLimitStore.size > 10000) {
-      for (const [k, v] of rateLimitStore) {
-        if (now > v.resetAt) rateLimitStore.delete(k);
       }
     }
 
