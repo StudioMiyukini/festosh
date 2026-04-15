@@ -23,5 +23,5 @@ function getEnvVar(key: string, defaultValue?: string): string {
 
 export const env: EnvConfig = {
   API_URL: getEnvVar("VITE_API_URL", "http://localhost:3001/api"),
-  APP_DOMAIN: getEnvVar("VITE_APP_DOMAIN", "miyukini.com"),
+  APP_DOMAIN: getEnvVar("VITE_APP_DOMAIN", "festosh.net"),
 } as const;

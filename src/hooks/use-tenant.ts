@@ -3,14 +3,14 @@ import { useTenantStore } from '@/stores/tenant-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { festivalService, editionService } from '@/services/festival.service';
 
-const APP_DOMAIN = import.meta.env.VITE_APP_DOMAIN || 'miyukini.com';
+const APP_DOMAIN = import.meta.env.VITE_APP_DOMAIN || 'festosh.net';
 
 /**
  * Resolves the current tenant (festival) from the hostname.
  *
  * Hostname patterns:
- * - `festosh.miyukini.com` or `localhost` → Platform mode (no festival)
- * - `{slug}.miyukini.com` → Festival sub-site mode
+ * - `festosh.net` or `localhost` → Platform mode (no festival)
+ * - `{slug}.festosh.net` → Festival sub-site mode
  * - `localhost?festival={slug}` → Festival mode in dev
  *
  * Call this ONCE in App.tsx. Other components use useTenantStore() directly.

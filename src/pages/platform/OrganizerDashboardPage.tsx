@@ -311,7 +311,7 @@ export function OrganizerDashboardPage() {
 
               {/* Slug */}
               <p className="mb-2 text-xs text-muted-foreground">
-                {festival.slug}.miyukini.com
+                {festival.slug}.festosh.net
               </p>
 
               {/* Edition + members */}
