@@ -1,73 +1,96 @@
-# React + TypeScript + Vite
+# Festosh
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Plateforme SaaS multi-tenant de gestion de conventions et festivals.
 
-Currently, two official plugins are available:
+Chaque festival dispose de son propre sous-site avec CMS, administration et pages publiques.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack technique
 
-## React Compiler
+| Couche | Technologie |
+|--------|------------|
+| Frontend | TypeScript, React 19, Vite 8, TailwindCSS, shadcn/ui |
+| Backend | Hono (Node.js) |
+| Base de donnees | SQLite via better-sqlite3 + Drizzle ORM |
+| Auth | JWT (jsonwebtoken + bcryptjs) |
+| Routing | React Router v7 |
+| State serveur | TanStack Query v5 |
+| State client | Zustand v5 |
+| Formulaires | react-hook-form + zod |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Demarrage rapide
 
-## Expanding the ESLint configuration
+```bash
+# Installer les dependances
+npm install
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+# Copier la configuration
+cp .env.example .env
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+# Lancer les migrations
+npm run db:migrate
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# (Optionnel) Peupler la base avec des donnees de demo
+npm run db:seed
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Lancer le serveur API + frontend
+npm run dev:all
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- Frontend : http://localhost:3002
+- API : http://localhost:3001
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Commandes
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Commande | Description |
+|----------|------------|
+| `npm run dev` | Frontend dev (port 3000) |
+| `npm run dev:server` | API backend (port 3001) |
+| `npm run dev:all` | Frontend + backend |
+| `npm run build` | Build production |
+| `npm run lint` | ESLint |
+| `npm run db:generate` | Generer les migrations Drizzle |
+| `npm run db:migrate` | Appliquer les migrations |
+| `npm run db:seed` | Peupler la base de demo |
+| `npm run db:studio` | Drizzle Studio (GUI base de donnees) |
+
+## Architecture
+
 ```
+src/
+  config/        # Configuration, env, query client
+  types/         # Interfaces TypeScript
+  lib/           # Utilitaires, client API
+  stores/        # Zustand (auth, tenant, UI)
+  hooks/         # Hooks React partages
+  features/      # Modules fonctionnels autonomes
+  layouts/       # Shells de mise en page
+  pages/         # Composants de pages (par route)
+    platform/    # Pages plateforme (festosh.net)
+    festival/    # Pages publiques festival (/f/:slug)
+    festival-admin/  # Admin festival (/f/:slug/admin)
+    admin/       # Admin plateforme (/admin)
+  components/    # Composants partages
+    ui/          # Primitives shadcn/ui
+    shared/      # Composants applicatifs
+
+server/
+  db/            # Schema Drizzle, migrations, seed
+  routes/        # Routes API Hono
+  middleware/    # Auth, roles festival
+  lib/           # Utilitaires serveur
+```
+
+## Multi-tenancy
+
+- **Mode plateforme** : `festosh.net` ou `localhost`
+- **Mode festival** : `{slug}.festosh.net` ou `/f/:slug`
+- Resolution du tenant dans `src/hooks/use-tenant.ts`
+
+## Roles
+
+- **Roles plateforme** (profil utilisateur) : `user`, `organizer`, `admin`
+- **Roles festival** (par festival) : `owner`, `admin`, `editor`, `moderator`, `volunteer`, `exhibitor`
+
+## Licence
+
+Proprietary - Studio Miyukini

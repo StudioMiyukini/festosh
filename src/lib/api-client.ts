@@ -1,6 +1,5 @@
 /**
  * HTTP API client for communicating with the Hono backend.
- * Replaces the Supabase client for all data operations.
  */
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';

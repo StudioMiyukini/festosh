@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { PlatformRole, UserType, DocumentType, DocumentStatus } from '@/types/enums';
 
-/** Minimal session info (replaces Supabase Session) */
+/** Minimal session info */
 interface Session {
   user: { id: string };
 }
@@ -113,7 +113,7 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'festosh-auth',
       partialize: (state) => ({
-        // Only persist minimal data, session is managed by Supabase
+        // Only persist minimal data
         profile: state.profile,
       }),
     }
