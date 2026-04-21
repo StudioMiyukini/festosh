@@ -100,6 +100,159 @@ billingRoutes.get('/my-invoices', authMiddleware, async (c) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// GET /invoices/:id/pdf — render invoice as printable HTML (PDF via browser)
+// ---------------------------------------------------------------------------
+billingRoutes.get('/invoices/:id/pdf', authMiddleware, async (c) => {
+  try {
+    const userId = c.get('userId');
+    const role = c.get('platformRole');
+    const id = c.req.param('id');
+
+    const inv = db.select().from(platformInvoices).where(eq(platformInvoices.id, id)).get();
+    if (!inv) return c.json({ success: false, error: 'Invoice not found' }, 404);
+
+    // Only owner or admin can view
+    if (inv.userId !== userId && role !== 'admin') {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+
+    const fmtDate = (ts: number | null) => {
+      if (!ts) return '—';
+      return new Date(ts * 1000).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+    };
+    const fmtCurrency = (cents: number) => (cents / 100).toLocaleString('fr-FR', { style: 'currency', currency: inv.currency || 'EUR' });
+
+    const statusLabel = inv.status === 'paid' ? 'Payee' : inv.status === 'pending' ? 'En attente' : inv.status;
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Facture ${inv.invoiceNumber}</title>
+<style>
+  @page { size: A4; margin: 20mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a1a; font-size: 13px; line-height: 1.5; }
+  .page { max-width: 800px; margin: 0 auto; padding: 40px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
+  .brand { font-size: 28px; font-weight: 800; color: #4f46e5; letter-spacing: -0.5px; }
+  .brand-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .invoice-title { text-align: right; }
+  .invoice-title h1 { font-size: 22px; font-weight: 700; color: #1a1a1a; }
+  .invoice-title .number { font-size: 14px; color: #6b7280; margin-top: 2px; }
+  .status { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .status-paid { background: #d1fae5; color: #065f46; }
+  .status-pending { background: #fef3c7; color: #92400e; }
+  .meta { display: flex; justify-content: space-between; margin-bottom: 32px; gap: 40px; }
+  .meta-block { flex: 1; }
+  .meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 6px; }
+  .meta-value { font-size: 13px; color: #374151; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  thead th { text-align: left; padding: 10px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; border-bottom: 2px solid #e5e7eb; }
+  thead th.right { text-align: right; }
+  tbody td { padding: 14px 16px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+  tbody td.right { text-align: right; }
+  .totals { margin-left: auto; width: 280px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; color: #374151; }
+  .totals-row.total { border-top: 2px solid #1a1a1a; padding-top: 12px; margin-top: 4px; font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
+  .notes { margin-top: 24px; padding: 16px; background: #f9fafb; border-radius: 8px; font-size: 12px; color: #6b7280; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none; } }
+  .print-btn { position: fixed; top: 20px; right: 20px; padding: 10px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; z-index: 100; }
+  .print-btn:hover { background: #4338ca; }
+</style>
+</head>
+<body>
+<button class="print-btn no-print" onclick="window.print()">Telecharger PDF</button>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="brand">Festosh</div>
+      <div class="brand-sub">Plateforme de gestion de festivals</div>
+    </div>
+    <div class="invoice-title">
+      <h1>FACTURE</h1>
+      <div class="number">${inv.invoiceNumber}</div>
+      <div style="margin-top:8px">
+        <span class="status status-${inv.status}">${statusLabel}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="meta-block">
+      <div class="meta-label">Emetteur</div>
+      <div class="meta-value">
+        <strong>Festosh — Studio Miyukini</strong><br/>
+        festosh.net
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-label">Client</div>
+      <div class="meta-value">
+        ${inv.billingName ? `<strong>${inv.billingName}</strong><br/>` : ''}
+        ${inv.billingEmail || ''}${inv.billingAddress ? `<br/>${inv.billingAddress}` : ''}
+        ${inv.billingVat ? `<br/>TVA : ${inv.billingVat}` : ''}
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-label">Dates</div>
+      <div class="meta-value">
+        Emise le : ${fmtDate(inv.issuedAt)}<br/>
+        ${inv.dueAt ? `Echeance : ${fmtDate(inv.dueAt)}<br/>` : ''}
+        ${inv.paidAt ? `Payee le : ${fmtDate(inv.paidAt)}` : ''}
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="right">Montant HT</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>${inv.label}</td>
+        <td class="right">${fmtCurrency(inv.subtotalCents)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="totals-row">
+      <span>Sous-total HT</span>
+      <span>${fmtCurrency(inv.subtotalCents)}</span>
+    </div>
+    <div class="totals-row">
+      <span>TVA (${Math.round((inv.taxRate || 0.20) * 100)}%)</span>
+      <span>${fmtCurrency(inv.taxCents)}</span>
+    </div>
+    <div class="totals-row total">
+      <span>Total TTC</span>
+      <span>${fmtCurrency(inv.totalCents)}</span>
+    </div>
+  </div>
+
+  ${inv.notes ? `<div class="notes"><strong>Notes :</strong> ${inv.notes}</div>` : ''}
+
+  <div class="footer">
+    Festosh — Studio Miyukini &middot; festosh.net<br/>
+    Facture generee automatiquement
+  </div>
+</div>
+</body>
+</html>`;
+
+    return c.html(html);
+  } catch (error) {
+    console.error('[billing] Invoice PDF error:', error);
+    return c.json({ success: false, error: 'Failed to generate invoice' }, 500);
+  }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ADMIN: Subscription & billing management
 // ═══════════════════════════════════════════════════════════════════════════

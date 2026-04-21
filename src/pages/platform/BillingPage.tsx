@@ -12,6 +12,7 @@ import {
   Calendar,
   Sparkles,
   ExternalLink,
+  FileDown,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { formatCurrency, formatTimestamp } from '@/lib/format-utils';
@@ -531,6 +532,9 @@ export function BillingPage() {
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Date
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    PDF
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -556,6 +560,17 @@ export function BillingPage() {
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right text-sm text-muted-foreground">
                       {formatTimestamp(inv.created_at)}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => window.open(`${import.meta.env.VITE_API_URL || '/api'}/billing/invoices/${inv.id}/pdf`, '_blank')}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                        title="Telecharger la facture en PDF"
+                      >
+                        <FileDown className="h-3.5 w-3.5" />
+                        PDF
+                      </button>
                     </td>
                   </tr>
                 ))}

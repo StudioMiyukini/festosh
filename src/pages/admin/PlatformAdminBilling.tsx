@@ -15,6 +15,7 @@ import {
   Gift,
   Check,
   X,
+  FileDown,
 } from 'lucide-react';
 import { api, ApiClient } from '@/lib/api-client';
 import { formatCurrency, formatTimestamp } from '@/lib/format-utils';
@@ -580,6 +581,9 @@ export function PlatformAdminBilling() {
                       <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                         Date
                       </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                        PDF
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -614,6 +618,16 @@ export function PlatformAdminBilling() {
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
                           {formatTimestamp(inv.created_at)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => window.open(`${import.meta.env.VITE_API_URL || '/api'}/billing/invoices/${inv.id}/pdf`, '_blank')}
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent"
+                            title="Voir la facture PDF"
+                          >
+                            <FileDown className="h-3.5 w-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
