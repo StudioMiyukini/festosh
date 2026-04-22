@@ -38,7 +38,7 @@ interface PosProduct {
   image_url: string | null;
   category_id: string | null;
   stock_quantity: number | null;
-  active: number;
+  is_active: number;
 }
 
 interface CartItem {
@@ -416,7 +416,7 @@ export function PosTerminalPage() {
       setCategories(catRes.data);
     }
     if (prodRes.success && prodRes.data) {
-      setProducts(prodRes.data.filter((p) => p.active === 1));
+      setProducts(prodRes.data.filter((p) => p.is_active === 1 || p.is_active === undefined));
     } else {
       setError(prodRes.error || 'Erreur lors du chargement des produits.');
     }
