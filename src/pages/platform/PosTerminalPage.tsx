@@ -129,8 +129,8 @@ function ProductCard({
           : 'hover:shadow-md hover:border-primary/40 active:scale-[0.98]'
       }`}
     >
-      {/* Image */}
-      <div className="relative aspect-square w-full overflow-hidden bg-muted">
+      {/* Image — compact on mobile */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
         {product.image_url ? (
           <img
             src={product.image_url}
@@ -245,6 +245,124 @@ function SuccessToast({ saleNumber, onDone }: { saleNumber: string; onDone: () =
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cart panel (shared between desktop sidebar and mobile overlay)
+// ---------------------------------------------------------------------------
+
+function CartPanel({
+  cart, cartItemCount, subtotalCents, discountCents, taxCents, totalCents,
+  appliedCoupon, couponCode, couponLoading, couponError, paymentMethod, processing, error,
+  onCouponCodeChange, onApplyCoupon, onRemoveCoupon, onPaymentMethodChange, onCheckout, onClearCart,
+  onIncrement, onDecrement, onRemove,
+}: {
+  cart: CartItem[]; cartItemCount: number; subtotalCents: number; discountCents: number;
+  taxCents: number; totalCents: number; appliedCoupon: CouponResult | null;
+  couponCode: string; couponLoading: boolean; couponError: string | null;
+  paymentMethod: PaymentMethod; processing: boolean; error: string | null;
+  onCouponCodeChange: (v: string) => void; onApplyCoupon: () => void; onRemoveCoupon: () => void;
+  onPaymentMethodChange: (v: PaymentMethod) => void; onCheckout: () => void; onClearCart: () => void;
+  onIncrement: (id: string) => void; onDecrement: (id: string) => void; onRemove: (id: string) => void;
+}) {
+  return (
+    <>
+      {/* Header */}
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          <ShoppingCart className="h-5 w-5 text-foreground" />
+          <h2 className="text-base font-semibold text-foreground">Panier</h2>
+          {cartItemCount > 0 && (
+            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">{cartItemCount}</span>
+          )}
+        </div>
+        {cart.length > 0 && (
+          <button type="button" onClick={onClearCart} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+            <Trash2 className="h-3.5 w-3.5" /> Vider
+          </button>
+        )}
+      </div>
+
+      {/* Items */}
+      <div className="flex-1 overflow-y-auto px-4">
+        {cart.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
+            <ShoppingCart className="h-10 w-10 opacity-30" />
+            <p className="text-sm">Le panier est vide</p>
+          </div>
+        ) : (
+          <div className="py-2">
+            {cart.map((item) => (
+              <CartItemRow key={item.productId} item={item} onIncrement={() => onIncrement(item.productId)} onDecrement={() => onDecrement(item.productId)} onRemove={() => onRemove(item.productId)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom */}
+      <div className="flex-shrink-0 border-t border-border">
+        {/* Coupon */}
+        <div className="border-b border-border px-4 py-2.5">
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">{appliedCoupon.code}</span>
+                <span className="text-xs text-green-600">(-{appliedCoupon.discount_type === 'percent' ? `${appliedCoupon.discount_value}%` : formatCurrency(appliedCoupon.discount_value)})</span>
+              </div>
+              <button type="button" onClick={onRemoveCoupon} className="rounded-md p-1 text-green-600 hover:bg-green-100"><X className="h-4 w-4" /></button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2">
+                <input type="text" value={couponCode} onChange={(e) => onCouponCodeChange(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === 'Enter') onApplyCoupon(); }} placeholder="Code promo"
+                  className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                <button type="button" onClick={onApplyCoupon} disabled={couponLoading || !couponCode.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50">
+                  {couponLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Tag className="h-3.5 w-3.5" />} Appliquer
+                </button>
+              </div>
+              {couponError && <p className="mt-1 text-xs text-destructive">{couponError}</p>}
+            </div>
+          )}
+        </div>
+
+        {/* Totals */}
+        <div className="space-y-1 border-b border-border px-4 py-2.5">
+          <div className="flex justify-between text-sm text-muted-foreground"><span>Sous-total</span><span>{formatCurrency(subtotalCents)}</span></div>
+          {discountCents > 0 && <div className="flex justify-between text-sm text-green-600"><span>Remise</span><span>-{formatCurrency(discountCents)}</span></div>}
+          <div className="flex justify-between text-sm text-muted-foreground"><span>TVA</span><span>{formatCurrency(taxCents)}</span></div>
+          <div className="flex justify-between border-t border-border pt-2 text-lg font-bold text-foreground"><span>Total</span><span>{formatCurrency(totalCents)}</span></div>
+        </div>
+
+        {/* Payment */}
+        <div className="border-b border-border px-4 py-2.5">
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Mode de paiement</p>
+          <div className="grid grid-cols-3 gap-2">
+            {PAYMENT_METHODS.map((pm) => {
+              const Icon = pm.icon;
+              return (
+                <button key={pm.value} type="button" onClick={() => onPaymentMethodChange(pm.value)}
+                  className={`flex flex-col items-center gap-1 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${paymentMethod === pm.value ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:border-primary/40'}`}>
+                  <Icon className="h-4 w-4" /> {pm.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Checkout */}
+        <div className="px-4 py-3">
+          {error && cart.length > 0 && <p className="mb-2 text-xs text-destructive">{error}</p>}
+          <button type="button" onClick={onCheckout} disabled={cart.length === 0 || processing}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 active:bg-green-800">
+            {processing ? <Loader2 className="h-5 w-5 animate-spin" /> : <CreditCard className="h-5 w-5" />}
+            Encaisser {cart.length > 0 ? formatCurrency(totalCents) : ''}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -497,15 +615,17 @@ export function PosTerminalPage() {
   // Render
   // -----------------------------------------------------------------------
 
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
+
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col lg:flex-row">
       {/* ================================================================= */}
       {/* LEFT PANEL: Products */}
       {/* ================================================================= */}
-      <div className="flex flex-1 flex-col overflow-hidden lg:w-[70%]">
-        {/* Search bar */}
-        <div className="flex-shrink-0 border-b border-border bg-background px-4 py-3">
-          <div className="relative">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Search + categories combined bar */}
+        <div className="flex-shrink-0 border-b border-border bg-background px-3 py-2">
+          <div className="relative mb-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               ref={searchInputRef}
@@ -513,48 +633,23 @@ export function PosTerminalPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Rechercher un produit..."
-              className="w-full rounded-lg border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             {searchQuery && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  searchInputRef.current?.focus();
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:text-foreground"
-              >
+              <button type="button" onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
-        </div>
-
-        {/* Category tabs */}
-        <div className="flex-shrink-0 border-b border-border bg-background px-4 py-2">
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <button
-              type="button"
-              onClick={() => setActiveCategory(null)}
-              className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                activeCategory === null
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
-              }`}
-            >
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            <button type="button" onClick={() => setActiveCategory(null)}
+              className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${activeCategory === null ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
               Tout
             </button>
             {categories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setActiveCategory(cat.id)}
-                className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                  activeCategory === cat.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
-              >
+              <button key={cat.id} type="button" onClick={() => setActiveCategory(cat.id)}
+                className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${activeCategory === cat.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'}`}>
                 {cat.name}
               </button>
             ))}
@@ -562,7 +657,7 @@ export function PosTerminalPage() {
         </div>
 
         {/* Product grid */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-3">
           {loadingData ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -571,11 +666,7 @@ export function PosTerminalPage() {
             <div className="flex h-full flex-col items-center justify-center gap-3">
               <AlertTriangle className="h-10 w-10 text-destructive/60" />
               <p className="text-sm text-destructive">{error}</p>
-              <button
-                type="button"
-                onClick={fetchData}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
+              <button type="button" onClick={fetchData} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
                 Reessayer
               </button>
             </div>
@@ -585,7 +676,7 @@ export function PosTerminalPage() {
               <p className="text-sm">Aucun produit trouve.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -600,195 +691,69 @@ export function PosTerminalPage() {
       </div>
 
       {/* ================================================================= */}
-      {/* RIGHT PANEL: Cart */}
+      {/* MOBILE: Floating cart button */}
       {/* ================================================================= */}
-      <div className="flex flex-col border-t border-border bg-card lg:w-[30%] lg:min-w-[340px] lg:max-w-[440px] lg:border-l lg:border-t-0">
-        {/* Cart header */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-foreground" />
-            <h2 className="text-base font-semibold text-foreground">Panier</h2>
-            {cartItemCount > 0 && (
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">
-                {cartItemCount}
-              </span>
-            )}
-          </div>
-          {cart.length > 0 && (
-            <button
-              type="button"
-              onClick={clearCart}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Vider
-            </button>
-          )}
-        </div>
-
-        {/* Cart items */}
-        <div className="flex-1 overflow-y-auto px-4">
-          {cart.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
-              <ShoppingCart className="h-10 w-10 opacity-30" />
-              <p className="text-sm">Le panier est vide</p>
-            </div>
+      {!mobileCartOpen && (
+        <button
+          type="button"
+          onClick={() => setMobileCartOpen(true)}
+          className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-transform active:scale-95 lg:hidden"
+        >
+          <ShoppingCart className="h-5 w-5" />
+          {cartItemCount > 0 ? (
+            <>{cartItemCount} — {formatCurrency(totalCents)}</>
           ) : (
-            <div className="py-2">
-              {cart.map((item) => (
-                <CartItemRow
-                  key={item.productId}
-                  item={item}
-                  onIncrement={() => incrementItem(item.productId)}
-                  onDecrement={() => decrementItem(item.productId)}
-                  onRemove={() => removeItem(item.productId)}
-                />
-              ))}
-            </div>
+            <>Panier</>
           )}
-        </div>
+        </button>
+      )}
 
-        {/* Bottom section (coupon, totals, checkout) - always visible */}
-        <div className="flex-shrink-0 border-t border-border">
-          {/* Coupon */}
-          <div className="border-b border-border px-4 py-3">
-            {appliedCoupon ? (
-              <div className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                    {appliedCoupon.code}
-                  </span>
-                  <span className="text-xs text-green-600 dark:text-green-400">
-                    (-{appliedCoupon.discount_type === 'percent'
-                      ? `${appliedCoupon.discount_value}%`
-                      : formatCurrency(appliedCoupon.discount_value)})
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={removeCoupon}
-                  className="rounded-md p-1 text-green-600 transition-colors hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-800/30"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => {
-                      setCouponCode(e.target.value.toUpperCase());
-                      setCouponError(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') applyCoupon();
-                    }}
-                    placeholder="Code promo"
-                    className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                  <button
-                    type="button"
-                    onClick={applyCoupon}
-                    disabled={couponLoading || !couponCode.trim()}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                  >
-                    {couponLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Tag className="h-3.5 w-3.5" />
-                    )}
-                    Appliquer
-                  </button>
-                </div>
-                {couponError && (
-                  <p className="mt-1.5 text-xs text-destructive">{couponError}</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Totals */}
-          <div className="space-y-1.5 border-b border-border px-4 py-3">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Sous-total</span>
-              <span>{formatCurrency(subtotalCents)}</span>
-            </div>
-            {discountCents > 0 && (
-              <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                <span>Remise</span>
-                <span>-{formatCurrency(discountCents)}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>TVA</span>
-              <span>{formatCurrency(taxCents)}</span>
-            </div>
-            <div className="flex justify-between border-t border-border pt-2 text-lg font-bold text-foreground">
-              <span>Total</span>
-              <span>{formatCurrency(totalCents)}</span>
-            </div>
-          </div>
-
-          {/* Payment method */}
-          <div className="border-b border-border px-4 py-3">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Mode de paiement</p>
-            <div className="grid grid-cols-3 gap-2">
-              {PAYMENT_METHODS.map((pm) => {
-                const Icon = pm.icon;
-                const isActive = paymentMethod === pm.value;
-                return (
-                  <button
-                    key={pm.value}
-                    type="button"
-                    onClick={() => setPaymentMethod(pm.value)}
-                    className={`flex flex-col items-center gap-1 rounded-lg border-2 px-2 py-2.5 text-xs font-medium transition-colors ${
-                      isActive
-                        ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {pm.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Checkout button */}
-          <div className="px-4 py-3">
-            {error && cart.length > 0 && (
-              <p className="mb-2 text-xs text-destructive">{error}</p>
-            )}
-            <button
-              type="button"
-              onClick={handleCheckout}
-              disabled={cart.length === 0 || processing}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-3.5 text-base font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 active:bg-green-800"
-            >
-              {processing ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <CreditCard className="h-5 w-5" />
+      {/* ================================================================= */}
+      {/* MOBILE: Cart overlay */}
+      {/* ================================================================= */}
+      {mobileCartOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background lg:hidden">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              <h2 className="text-base font-semibold text-foreground">Panier</h2>
+              {cartItemCount > 0 && (
+                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">{cartItemCount}</span>
               )}
-              Encaisser {cart.length > 0 ? formatCurrency(totalCents) : ''}
+            </div>
+            <button type="button" onClick={() => setMobileCartOpen(false)} className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
+              <X className="h-5 w-5" />
             </button>
           </div>
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <CartPanel
+              cart={cart} cartItemCount={cartItemCount} subtotalCents={subtotalCents} discountCents={discountCents}
+              taxCents={taxCents} totalCents={totalCents} appliedCoupon={appliedCoupon} couponCode={couponCode}
+              couponLoading={couponLoading} couponError={couponError} paymentMethod={paymentMethod} processing={processing} error={error}
+              onCouponCodeChange={setCouponCode} onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
+              onPaymentMethodChange={setPaymentMethod} onCheckout={handleCheckout} onClearCart={clearCart}
+              onIncrement={incrementItem} onDecrement={decrementItem} onRemove={removeItem}
+            />
+          </div>
         </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* DESKTOP: Right panel cart */}
+      {/* ================================================================= */}
+      <div className="hidden lg:flex flex-col border-l border-border bg-card lg:w-[30%] lg:min-w-[340px] lg:max-w-[440px]">
+        <CartPanel
+          cart={cart} cartItemCount={cartItemCount} subtotalCents={subtotalCents} discountCents={discountCents}
+          taxCents={taxCents} totalCents={totalCents} appliedCoupon={appliedCoupon} couponCode={couponCode}
+          couponLoading={couponLoading} couponError={couponError} paymentMethod={paymentMethod} processing={processing} error={error}
+          onCouponCodeChange={setCouponCode} onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon}
+          onPaymentMethodChange={setPaymentMethod} onCheckout={handleCheckout} onClearCart={clearCart}
+          onIncrement={incrementItem} onDecrement={decrementItem} onRemove={removeItem}
+        />
       </div>
 
-      {/* ================================================================= */}
       {/* Success toast */}
-      {/* ================================================================= */}
-      {successSale && (
-        <SuccessToast
-          saleNumber={successSale}
-          onDone={() => setSuccessSale(null)}
-        />
-      )}
+      {successSale && <SuccessToast saleNumber={successSale} onDone={() => setSuccessSale(null)} />}
     </div>
   );
 }
