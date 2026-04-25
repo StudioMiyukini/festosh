@@ -104,6 +104,23 @@ const TUTORIALS: DocSection[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // BENEVOLE
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'volunteer-profile',
+    icon: Heart,
+    title: 'Espace benevole',
+    description: 'Creez votre profil, candidatez et suivez vos missions.',
+    category: 'Benevole',
+    steps: [
+      { title: 'Creer votre profil', content: "Depuis le menu utilisateur, cliquez sur 'Espace benevole'. L'onglet 'Profil' vous permet de renseigner vos competences (langues, secourisme, technique...), certifications (BAFA, PSC1, SST...), disponibilites par jour de la semaine, et actions preferees parmi 23 types (accueil, buvette, securite, logistique, etc.)." },
+      { title: 'Informations pratiques', content: "Renseignez votre taille de t-shirt, si vous avez un vehicule, si vous etes PMR, et votre contact d'urgence (nom + telephone). Ces informations aident les organisateurs a planifier la logistique." },
+      { title: 'Candidater a un festival', content: "L'onglet 'Postuler' affiche les festivals qui recherchent des benevoles. Cliquez sur 'Postuler', selectionnez vos actions preferees pour ce festival, indiquez vos disponibilites specifiques et redigez votre motivation." },
+      { title: 'Suivre vos candidatures', content: "L'onglet 'Mes candidatures' centralise toutes vos candidatures avec le nom du festival, l'edition et le statut (en attente, acceptee, refusee). Une fois accepte, l'organisateur vous assignera des creneaux dans le planning benevole." },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // EXPOSANTS
   // ═══════════════════════════════════════════════════════════════════════════
   {
@@ -129,7 +146,23 @@ const TUTORIALS: DocSection[] = [
     steps: [
       { title: 'Candidater', content: "Sur la page d'un festival, cliquez sur 'Candidater'. Votre profil exposant est pre-rempli. Indiquez vos preferences : zone, taille de stand, besoins en electricite/eau." },
       { title: 'Suivi cross-festivals', content: "L'onglet 'Mes candidatures' de l'Espace exposant centralise toutes vos candidatures sur tous les festivals : statut, montant, lien vers l'admin du festival." },
-      { title: 'Factures', content: "L'onglet 'Mes factures' centralise toutes les factures emises par les festivals du reseau Festosh." },
+      { title: 'Factures et PDF', content: "L'onglet 'Mes factures' centralise toutes les factures emises par les festivals. Cliquez sur le bouton PDF a droite de chaque facture pour la telecharger en version imprimable (format A4 avec emetteur, client, montants HT/TVA/TTC)." },
+    ],
+  },
+  {
+    id: 'exhibitor-apply-detail',
+    icon: ClipboardList,
+    title: 'Candidature exposant detaillee',
+    description: 'Le parcours complet pour candidater a un festival.',
+    category: 'Exposant',
+    steps: [
+      { title: 'Acceder au formulaire', content: "Rendez-vous sur le site public d'un festival (via l'annuaire), puis cliquez sur 'Candidature' dans le menu. Vous devez etre connecte avec un profil exposant." },
+      { title: 'Choisir un type de stand', content: "L'organisateur propose differents types de stands avec dimensions, prix (forfait ou par jour), et options (electricite, eau). Cliquez sur le type souhaite pour le selectionner." },
+      { title: 'Selectionner un emplacement', content: "Si l'organisateur a active la selection d'emplacements, vous pouvez choisir votre emplacement prefere sur le plan. Sinon, l'organisateur vous attribuera un emplacement apres acceptation." },
+      { title: 'Demandes particulieres', content: "Redigez vos besoins specifiques : preferences de placement, equipement supplementaire, contraintes d'installation, acces PMR, etc." },
+      { title: 'Accepter les reglements', content: "Si le festival exige l'acceptation de reglements (reglement exposant, reglement interieur...), cochez chaque reglement pour confirmer votre lecture et acceptation." },
+      { title: 'Verifier et envoyer', content: "Le panneau recapitulatif a droite affiche votre profil exposant, le type de stand choisi et le statut des reglements. Assurez-vous que votre profil est complet (raison sociale, email, SIRET). Cliquez sur 'Envoyer la candidature'." },
+      { title: 'Suivi', content: "Apres envoi, retrouvez votre candidature dans l'Espace exposant > Candidatures. L'organisateur la traitera et vous recevrez une notification. Si acceptee, votre stand assigne et les notes de l'organisateur seront visibles." },
     ],
   },
   {
@@ -328,6 +361,20 @@ const TUTORIALS: DocSection[] = [
     ],
   },
   {
+    id: 'surveys',
+    icon: ClipboardList,
+    title: 'Questionnaires',
+    description: 'Sondages personnalises pour les visiteurs.',
+    category: 'Experience visiteur',
+    steps: [
+      { title: 'Creer un questionnaire', content: "Allez dans Questionnaires et cliquez 'Nouveau'. Donnez un titre et une description. Ajoutez des questions de type : texte libre, choix unique, choix multiple, note (etoiles), oui/non." },
+      { title: 'Configurer les questions', content: "Pour chaque question, definissez le libelle, le type, si elle est obligatoire, et les options de reponse (pour les choix). Reordonnez les questions par glisser-deposer." },
+      { title: 'Publier et partager', content: "Publiez le questionnaire pour le rendre accessible. Un lien unique est genere. Vous pouvez aussi l'integrer dans une page CMS du festival." },
+      { title: 'Analyser les reponses', content: "L'onglet 'Reponses' affiche toutes les reponses collectees. L'onglet 'Statistiques' montre des graphiques de repartition pour chaque question." },
+      { title: 'Dupliquer', content: "Dupliquez un questionnaire existant pour en creer une variante sans repartir de zero." },
+    ],
+  },
+  {
     id: 'qr-objects',
     icon: QrCode,
     title: 'QR Codes universels',
@@ -435,6 +482,20 @@ const TUTORIALS: DocSection[] = [
       { title: 'Theme', content: "Personnalisez les couleurs primaire, secondaire, d'accent, fond et texte. Choisissez la police et le style d'en-tete de votre site public." },
       { title: 'Communication', content: "Configurez les parametres SMTP pour l'envoi d'emails et les campagnes email aux exposants et participants." },
       { title: 'Editions', content: "Gerez les editions de votre festival. Chaque edition a ses propres dates, programme, budget, stands et billetterie. Activez l'edition courante." },
+    ],
+  },
+  {
+    id: 'regulations',
+    icon: BookMarked,
+    title: 'Reglements',
+    description: 'Regles du festival avec acceptation obligatoire.',
+    category: 'Parametres',
+    steps: [
+      { title: 'Templates', content: "Cliquez sur 'Appliquer un modele' pour generer un reglement pre-redige. 7 modeles disponibles : Visiteur, Exposant, Cosplay, Photo/Video, Benevole, Securite, Vie privee." },
+      { title: 'Personnaliser', content: "Modifiez le titre, le contenu et la categorie. L'editeur de texte riche permet de structurer le document avec titres, listes et mise en forme." },
+      { title: 'Acceptation obligatoire', content: "Activez 'Acceptation requise' pour obliger les exposants a accepter ce reglement lors de leur candidature. Une case a cocher apparaitra sur le formulaire de candidature." },
+      { title: 'Publication', content: "Publiez le reglement pour le rendre visible sur le site public du festival (page 'Reglements'). Les reglements non publies sont en brouillon." },
+      { title: 'Suivi des acceptations', content: "Consultez qui a accepte chaque reglement, a quelle date et depuis quelle adresse IP. Utile pour prouver le consentement en cas de litige." },
     ],
   },
   {
