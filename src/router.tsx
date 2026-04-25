@@ -18,6 +18,10 @@ import { ProfilePage } from '@/pages/platform/ProfilePage';
 import { PrivacyPage } from '@/pages/platform/PrivacyPage';
 import { AboutPage } from '@/pages/platform/AboutPage';
 import { DocsPage } from '@/pages/platform/DocsPage';
+import { DocsVisitorPage } from '@/pages/platform/docs/DocsVisitorPage';
+import { DocsVolunteerPage } from '@/pages/platform/docs/DocsVolunteerPage';
+import { DocsExhibitorPage } from '@/pages/platform/docs/DocsExhibitorPage';
+import { DocsOrganizerPage } from '@/pages/platform/docs/DocsOrganizerPage';
 
 // Festival public pages
 import { FestivalHomePage } from '@/pages/festival/FestivalHomePage';
@@ -135,6 +139,10 @@ export const router = createBrowserRouter([
       { path: '/privacy', element: <PrivacyPage /> },
       { path: '/about', element: <AboutPage /> },
       { path: '/docs', element: <DocsPage /> },
+      { path: '/docs/visitor', element: <DocsVisitorPage /> },
+      { path: '/docs/volunteer', element: <DocsVolunteerPage /> },
+      { path: '/docs/exhibitor', element: <DocsExhibitorPage /> },
+      { path: '/docs/organizer', element: <DocsOrganizerPage /> },
     ],
   },
 

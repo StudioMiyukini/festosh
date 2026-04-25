@@ -7,6 +7,7 @@ import {
   Store,
   Users,
   Calendar,
+  CalendarDays,
   FileText,
   DollarSign,
   Package,
@@ -584,6 +585,29 @@ export function DocsPage() {
                 className="w-full rounded-lg border bg-background py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Role-specific guides */}
+      <section className="border-b border-border py-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <h2 className="mb-6 text-center text-lg font-bold text-foreground">Guides par type d'utilisateur</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { to: '/docs/visitor', icon: Sparkles, label: 'Visiteur', desc: 'XP, billets, tampons, votes, tombola', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' },
+              { to: '/docs/volunteer', icon: Heart, label: 'Benevole', desc: 'Profil, competences, candidatures, missions', color: 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400' },
+              { to: '/docs/exhibitor', icon: Store, label: 'Exposant', desc: 'Profil, stands, POS, documents, factures', color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
+              { to: '/docs/organizer', icon: CalendarDays, label: 'Organisateur', desc: 'Creation, CMS, exposants, budget, equipe', color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+            ].map((g) => (
+              <Link key={g.to} to={g.to} className="group rounded-xl border border-border bg-card p-5 transition-all hover:shadow-md hover:border-primary/30">
+                <div className={`mb-3 inline-flex rounded-lg p-2.5 ${g.color}`}>
+                  <g.icon className="h-5 w-5" />
+                </div>
+                <h3 className="text-base font-semibold text-foreground group-hover:text-primary">{g.label}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">{g.desc}</p>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
