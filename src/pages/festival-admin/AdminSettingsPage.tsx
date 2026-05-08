@@ -179,7 +179,8 @@ export function AdminSettingsPage() {
     if (!activeEdition) return;
     setStartDate(activeEdition.start_date || '');
     setEndDate(activeEdition.end_date || '');
-    setVisitorHours(activeEdition.visitor_hours || []);
+    const vh = activeEdition.visitor_hours;
+    setVisitorHours(Array.isArray(vh) ? vh : typeof vh === 'string' ? JSON.parse(vh || '[]') : []);
   }, [activeEdition]);
 
   // Generate days between start and end dates
