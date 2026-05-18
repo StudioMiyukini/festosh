@@ -48,10 +48,13 @@ export function OrderConfirmationPage() {
 
   useEffect(() => {
     if (!orderNumber) return;
+    let cancelled = false;
     api.get<Order>(`/shop/orders/by-number/${orderNumber}`).then((res) => {
+      if (cancelled) return;
       if (res.success && res.data) setOrder(res.data as Order);
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [orderNumber]);
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;

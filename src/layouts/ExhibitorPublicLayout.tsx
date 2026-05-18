@@ -47,9 +47,11 @@ export function ExhibitorPublicLayout() {
 
   useEffect(() => {
     if (!slug) return;
+    let cancelled = false;
     setLoading(true);
     setNotFound(false);
     api.get<PublicExhibitor>(`/public/exhibitors/by-slug/${slug}`).then((res) => {
+      if (cancelled) return;
       if (res.success && res.data) {
         setExhibitor(res.data as PublicExhibitor);
       } else {
@@ -57,9 +59,28 @@ export function ExhibitorPublicLayout() {
       }
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [slug]);
 
-  if (loading) {
+  // Only show the 404 / loading screen for terminal states. While the exhibitor
+  // is loading we still render the shell + Outlet so child pages can start
+  // their own fetches in parallel (the boutique page hits a separate endpoint
+  // and would otherwise wait for the layout fetch to resolve before mounting).
+  if (notFound) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Exposant introuvable</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Cet exposant n'existe pas ou son profil n'est pas public.
+        </p>
+        <Link to="/" className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          <ArrowLeft className="h-4 w-4" /> Retour a l'accueil
+        </Link>
+      </div>
+    );
+  }
+
+  if (loading && !exhibitor) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -67,7 +88,7 @@ export function ExhibitorPublicLayout() {
     );
   }
 
-  if (notFound || !exhibitor) {
+  if (!exhibitor) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center">
         <h1 className="text-2xl font-bold text-foreground">Exposant introuvable</h1>

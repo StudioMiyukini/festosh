@@ -40,11 +40,14 @@ export function ExhibitorVitrinePage() {
 
   useEffect(() => {
     if (!slug) return;
+    let cancelled = false;
     setLoading(true);
     api.get<VitrinePage>(`/cms/exhibitor/by-slug/${slug}/pages/accueil`).then((res) => {
+      if (cancelled) return;
       if (res.success && res.data) setPage(res.data as VitrinePage);
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [slug]);
 
   if (loading) {

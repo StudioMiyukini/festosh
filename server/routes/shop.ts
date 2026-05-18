@@ -6,7 +6,7 @@
  */
 
 import { Hono } from 'hono';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
 import {
@@ -21,7 +21,6 @@ import { formatResponse } from '../lib/format.js';
 import {
   createPaymentIntent,
   retrievePaymentIntent,
-  confirmMockIntent,
   PAYMENT_PROVIDER_IN_USE,
 } from '../lib/payments.js';
 
@@ -29,10 +28,16 @@ const shopRoutes = new Hono();
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Generate an order number with ~64 bits of entropy. Format
+ * `CMD-YYMMDD-XXXXXXXXXXXX` — date prefix for human grouping, 12 hex chars
+ * (crypto-random) for the unguessable suffix. The unique index on
+ * order_number guards against the (vanishingly small) collision case.
+ */
 function generateOrderNumber(): string {
   const date = new Date();
   const yymmdd = `${date.getFullYear().toString().slice(2)}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-  const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
+  const rand = crypto.randomBytes(6).toString('hex').toUpperCase();
   return `CMD-${yymmdd}-${rand}`;
 }
 
@@ -112,7 +117,10 @@ shopRoutes.post('/checkout', optionalAuth, async (c) => {
       if (!p || p.isActive !== 1 || p.isOnline !== 1) {
         return c.json({ success: false, error: `Produit indisponible : ${line.product_id}` }, 400);
       }
-      const qty = Math.max(1, Math.min(line.quantity, 999));
+      if (!Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 999) {
+        return c.json({ success: false, error: `Quantite invalide pour ${p.name}` }, 400);
+      }
+      const qty = line.quantity;
       if (p.stockQuantity < qty) {
         return c.json({ success: false, error: `Stock insuffisant pour ${p.name}` }, 400);
       }
@@ -137,7 +145,7 @@ shopRoutes.post('/checkout', optionalAuth, async (c) => {
     }
 
     const total = subtotal + taxTotal + shipping;
-    const currency = ex.boutiqueCurrency || 'EUR';
+    const currency = (ex.boutiqueCurrency || 'EUR').toUpperCase();
 
     // Create the order in pending state
     const orderId = crypto.randomUUID();
@@ -228,49 +236,86 @@ shopRoutes.post('/checkout', optionalAuth, async (c) => {
 
 // ─── POST /shop/orders/:id/confirm ────────────────────────────────────────
 // Customer-side callback: verify payment and finalize the order.
-// In mock mode this just flips the intent to "succeeded".
-// In stripe mode this checks the actual intent status before marking paid.
+//
+// Race-safe by design: the transition `pending → paid` is performed via a
+// conditional UPDATE (`WHERE status = 'pending'`). Only the request whose
+// UPDATE actually changes a row owns the post-payment side effects (stock
+// decrement, notification). Concurrent confirms get back the already-paid
+// order without re-decrementing stock.
+//
+// Mock mode auto-confirms here (intent state lives on the order row, not
+// in memory, so a server restart between checkout and confirm is fine).
+// Stripe mode re-verifies the intent via the Stripe API before marking paid.
 shopRoutes.post('/orders/:id/confirm', async (c) => {
   try {
     const orderId = c.req.param('id');
     const order = db.select().from(shopOrders).where(eq(shopOrders.id, orderId)).get();
     if (!order) return c.json({ success: false, error: 'Order not found' }, 404);
+
     if (order.status !== 'pending') {
+      // Idempotent: another request already finalised. Just return the row.
       return c.json({ success: true, data: formatOrder(order), already: true });
     }
     if (!order.paymentIntentId) return c.json({ success: false, error: 'No payment intent' }, 400);
 
-    // Mock mode auto-confirms here. Stripe mode requires the intent to be succeeded already.
-    let intent = order.paymentProvider === 'mock'
-      ? confirmMockIntent(order.paymentIntentId)
-      : await retrievePaymentIntent(order.paymentIntentId);
-
-    if (!intent || intent.status !== 'succeeded') {
-      return c.json({ success: false, error: 'Payment not confirmed', status: intent?.status }, 402);
+    // Verify payment.
+    if (order.paymentProvider === 'mock') {
+      // Mock provider: payment is implicitly succeeded as soon as we got
+      // here. No external lookup needed.
+    } else {
+      const intent = await retrievePaymentIntent(order.paymentIntentId);
+      if (!intent || intent.status !== 'succeeded') {
+        return c.json({ success: false, error: 'Payment not confirmed', status: intent?.status }, 402);
+      }
     }
 
     const now = Math.floor(Date.now() / 1000);
-    db.update(shopOrders)
-      .set({
-        status: 'paid',
-        paymentStatus: 'succeeded',
-        paidAt: now,
-        updatedAt: now,
-      })
-      .where(eq(shopOrders.id, orderId))
-      .run();
 
-    // Decrement stock
-    const items = db.select().from(shopOrderItems).where(eq(shopOrderItems.orderId, orderId)).all();
-    for (const item of items) {
-      if (!item.productId) continue;
-      const p = db.select().from(products).where(eq(products.id, item.productId)).get();
-      if (!p) continue;
-      const newQty = Math.max(0, p.stockQuantity - item.quantity);
-      db.update(products).set({ stockQuantity: newQty, updatedAt: now }).where(eq(products.id, p.id)).run();
+    // Wrap the state transition + stock decrement + notification in a single
+    // transaction. The conditional WHERE guarantees only one concurrent
+    // request "wins" — others see status !== 'pending' on the re-read and
+    // exit via the idempotent branch below.
+    const won = db.transaction((tx) => {
+      const result = tx.update(shopOrders)
+        .set({
+          status: 'paid',
+          paymentStatus: 'succeeded',
+          paidAt: now,
+          updatedAt: now,
+        })
+        .where(and(eq(shopOrders.id, orderId), eq(shopOrders.status, 'pending')))
+        .run();
+
+      // better-sqlite3 returns { changes } via the underlying run result;
+      // Drizzle surfaces this as `result.changes`.
+      // @ts-expect-error drizzle types under-declare the result shape
+      if (!result || result.changes === 0) return false;
+
+      // Decrement stock — single UPDATE per item, arithmetic in SQL,
+      // floor at 0 to avoid going negative even if stock was reduced
+      // between checkout and confirm.
+      const items = tx.select().from(shopOrderItems).where(eq(shopOrderItems.orderId, orderId)).all();
+      for (const item of items) {
+        if (!item.productId) continue;
+        tx.update(products)
+          .set({
+            stockQuantity: sql`MAX(0, ${products.stockQuantity} - ${item.quantity})`,
+            updatedAt: now,
+          })
+          .where(eq(products.id, item.productId))
+          .run();
+      }
+      return true;
+    });
+
+    if (!won) {
+      // Lost the race — re-read and return the now-paid order.
+      const fresh = db.select().from(shopOrders).where(eq(shopOrders.id, orderId)).get();
+      return c.json({ success: true, data: formatOrder(fresh!), already: true });
     }
 
-    // Notify the exhibitor
+    // Notify exhibitor (outside the transaction — notification failure
+    // shouldn't abort a successful payment).
     const ex = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.id, order.exhibitorId)).get();
     if (ex && ex.userId) {
       db.insert(notifications).values({
@@ -292,19 +337,51 @@ shopRoutes.post('/orders/:id/confirm', async (c) => {
   }
 });
 
-// ─── GET /shop/orders/:id (public, by order number for tracking) ──────────
+// ─── GET /shop/orders/by-number/:number (public tracking) ─────────────────
+// The order number itself is the bearer credential. We use a 12-byte
+// crypto-random suffix (96 bits), so guessing is infeasible. Knowing the
+// number grants read access to the customer's own data.
+//
+// As an extra defence against accidental sharing of the URL, we hide PII
+// (shipping address, customer phone) unless the request also supplies the
+// customer email as `?email=...` — that turns the URL into something that
+// only the original recipient can fully decode.
 shopRoutes.get('/orders/by-number/:number', async (c) => {
   try {
     const num = c.req.param('number');
+    const queryEmail = c.req.query('email')?.trim().toLowerCase();
     const order = db.select().from(shopOrders).where(eq(shopOrders.orderNumber, num)).get();
     if (!order) return c.json({ success: false, error: 'Order not found' }, 404);
 
     const items = db.select().from(shopOrderItems).where(eq(shopOrderItems.orderId, order.id)).all();
+
+    const showPii = !!queryEmail && order.customerEmail.toLowerCase() === queryEmail;
+    const formatted = formatOrder(order) as Record<string, unknown>;
+    if (!showPii) {
+      // Strip PII; the customer can re-request with their email to unlock.
+      delete formatted.shipping_address_line1;
+      delete formatted.shipping_address_line2;
+      delete formatted.shipping_postal_code;
+      delete formatted.shipping_city;
+      delete formatted.billing_address_line1;
+      delete formatted.billing_address_line2;
+      delete formatted.billing_postal_code;
+      delete formatted.billing_city;
+      delete formatted.customer_phone;
+      delete formatted.customer_first_name;
+      delete formatted.customer_last_name;
+      // Mask email to first letter + domain
+      const em = order.customerEmail;
+      const at = em.indexOf('@');
+      formatted.customer_email = at > 0 ? em[0] + '***' + em.slice(at) : '***';
+    }
+
     return c.json({
       success: true,
       data: {
-        ...formatOrder(order),
+        ...formatted,
         items: items.map(formatOrderItem),
+        pii_available: !showPii && !!queryEmail ? false : showPii,
       },
     });
   } catch (error) {

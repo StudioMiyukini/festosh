@@ -53,11 +53,14 @@ export function ExhibitorBoutiquePage() {
 
   useEffect(() => {
     if (!slug) return;
+    let cancelled = false;
     setLoading(true);
     api.get<Catalog>(`/public/exhibitors/by-slug/${slug}/products`).then((res) => {
+      if (cancelled) return;
       if (res.success && res.data) setCatalog(res.data as Catalog);
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [slug]);
 
   const filtered = (catalog?.products || []).filter((p) => {

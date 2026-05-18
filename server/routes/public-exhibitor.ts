@@ -6,7 +6,7 @@
  */
 
 import { Hono } from 'hono';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, or, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   exhibitorProfiles,
@@ -197,10 +197,10 @@ publicExhibitorRoutes.get('/by-slug/:slug/products/:productSlug', async (c) => {
           eq(products.exhibitorId, ex.id),
           eq(products.isActive, 1),
           eq(products.isOnline, 1),
+          or(eq(products.id, productSlug), eq(products.slug, productSlug)),
         ),
       )
-      .all()
-      .find((p) => p.id === productSlug || p.slug === productSlug);
+      .get();
 
     if (!prod) return c.json({ success: false, error: 'Product not found' }, 404);
 

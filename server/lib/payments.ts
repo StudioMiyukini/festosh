@@ -7,6 +7,8 @@
  * and demos before the merchant has plugged in Stripe.
  */
 
+import crypto from 'crypto';
+
 export interface PaymentIntent {
   id: string;
   client_secret: string;
@@ -102,41 +104,34 @@ async function retrieveStripePaymentIntent(intentId: string): Promise<PaymentInt
   };
 }
 
-// ─── Mock provider (auto-confirms in dev) ─────────────────────────────────
-// In-memory store so retrieval works within the same process.
-
-interface MockIntent extends PaymentIntent { confirmedAt?: number }
-const MOCK_INTENTS = new Map<string, MockIntent>();
+// ─── Mock provider (stateless — auto-confirms via the order row) ──────────
+// In a previous iteration mock intents lived in a Map<string, MockIntent>,
+// which meant a server restart between checkout and confirm orphaned the
+// order forever. The mock is now stateless: createMockPaymentIntent returns
+// a deterministic-looking id, and the shop route auto-marks the order as
+// succeeded on confirm without needing a server-side lookup. The id is still
+// crypto-random so it is non-guessable; we use the prefix "mock_" to
+// distinguish from Stripe's "pi_" so retrievePaymentIntent can route.
 
 function createMockPaymentIntent(params: CreateIntentParams): PaymentIntent {
-  const id = 'mock_' + Math.random().toString(36).slice(2, 14);
-  const intent: MockIntent = {
+  const id = 'mock_' + crypto.randomBytes(12).toString('hex');
+  const secret = crypto.randomBytes(16).toString('hex');
+  return {
     id,
-    client_secret: id + '_secret_' + Math.random().toString(36).slice(2, 8),
+    client_secret: `${id}_secret_${secret}`,
     amount_cents: params.amount_cents,
     currency: params.currency.toUpperCase(),
     status: 'requires_confirmation',
     provider: 'mock',
   };
-  MOCK_INTENTS.set(id, intent);
-  return intent;
-}
-
-function retrieveMockPaymentIntent(intentId: string): PaymentIntent | null {
-  return MOCK_INTENTS.get(intentId) || null;
 }
 
 /**
- * Mock-only helper: mark an intent as succeeded. Real Stripe flow uses webhooks
- * + client-side confirmation; the mock simulates that by being called from the
- * "confirm" endpoint.
+ * Returns true if this looks like a mock intent that we can finalise
+ * without making a network call.
  */
-export function confirmMockIntent(intentId: string): PaymentIntent | null {
-  const intent = MOCK_INTENTS.get(intentId);
-  if (!intent) return null;
-  intent.status = 'succeeded';
-  intent.confirmedAt = Date.now();
-  return intent;
+export function isMockIntentId(intentId: string): boolean {
+  return intentId.startsWith('mock_');
 }
 
 export const PAYMENT_PROVIDER_IN_USE = STRIPE_KEY ? 'stripe' : 'mock';
