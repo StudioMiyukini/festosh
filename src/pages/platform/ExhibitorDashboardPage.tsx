@@ -47,6 +47,17 @@ import { api } from '@/lib/api-client';
 import { formatTimestamp, formatCurrency } from '@/lib/format-utils';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { EXHIBITOR_DOMAINS } from '@/lib/exhibitor-domains';
+import {
+  useExhibitorApplications,
+  useExhibitorDocuments,
+  useExhibitorAccounting,
+  useExhibitorProfile,
+  useExhibitorInvoices,
+  usePosProducts,
+  useShopOrders,
+  useToggleProductOnline,
+  useSaveExhibitorProfile,
+} from '@/features/exhibitor/hooks';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -780,28 +791,17 @@ function ProfileTab() {
 // ---------------------------------------------------------------------------
 
 function DocumentsTab() {
-  const [documents, setDocuments] = useState<MyDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const docsQuery = useExhibitorDocuments();
+  const documents: MyDocument[] = (docsQuery.data ?? []) as MyDocument[];
+  const loading = docsQuery.isLoading;
+  const error = docsQuery.isError ? docsQuery.error?.message ?? 'Erreur lors du chargement.' : null;
+  const fetchDocuments = () => docsQuery.refetch();
+
   const [expiryDocId, setExpiryDocId] = useState<string | null>(null);
   const [expiryDate, setExpiryDate] = useState('');
   const [savingExpiry, setSavingExpiry] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'verified' | 'expired'>('all');
   const navigate = useNavigate();
-
-  const fetchDocuments = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const result = await api.get<MyDocument[]>('/exhibitor-hub/my-documents');
-    if (result.success && result.data) {
-      setDocuments(Array.isArray(result.data) ? result.data : []);
-    } else {
-      setError(result.error || 'Erreur lors du chargement des documents.');
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
 
   const openExpiryDialog = (doc: MyDocument) => {
     setExpiryDocId(doc.id);
@@ -920,19 +920,10 @@ function DocumentsTab() {
 // ---------------------------------------------------------------------------
 
 function ApplicationsTab() {
-  const [applications, setApplications] = useState<MyApplication[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const result = await api.get<MyApplication[]>('/exhibitor-hub/my-applications');
-      if (result.success && result.data) setApplications(Array.isArray(result.data) ? result.data : []);
-      else setError(result.error || 'Erreur lors du chargement.');
-      setLoading(false);
-    })();
-  }, []);
+  const appsQuery = useExhibitorApplications();
+  const applications: MyApplication[] = (appsQuery.data ?? []) as MyApplication[];
+  const loading = appsQuery.isLoading;
+  const error = appsQuery.isError ? appsQuery.error?.message ?? 'Erreur lors du chargement.' : null;
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   if (error) return <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>;
@@ -1005,19 +996,10 @@ function ApplicationsTab() {
 // ---------------------------------------------------------------------------
 
 function InvoicesTab() {
-  const [invoices, setInvoices] = useState<MyInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const result = await api.get<MyInvoice[]>('/exhibitor-hub/my-invoices');
-      if (result.success && result.data) setInvoices(Array.isArray(result.data) ? result.data : []);
-      else setError(result.error || 'Erreur lors du chargement.');
-      setLoading(false);
-    })();
-  }, []);
+  const invQuery = useExhibitorInvoices();
+  const invoices: MyInvoice[] = (invQuery.data ?? []) as MyInvoice[];
+  const loading = invQuery.isLoading;
+  const error = invQuery.isError ? invQuery.error?.message ?? 'Erreur lors du chargement.' : null;
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   if (error) return <div className="rounded-md border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>;
@@ -1343,12 +1325,7 @@ function BoutiqueTab({ profile }: { profile: ExhibitorProfile | null }) {
   const [intro, setIntro] = useState(profile?.boutique_intro || '');
   const [shippingCents, setShippingCents] = useState(profile?.boutique_shipping_cents ?? 0);
   const [freeAbove, setFreeAbove] = useState<number | ''>(profile?.boutique_free_shipping_above_cents ?? '');
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [products, setProducts] = useState<OnlineProduct[]>([]);
-  const [orders, setOrders] = useState<ReceivedOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     setEnabled(profile?.boutique_enabled === 1);
@@ -1357,37 +1334,34 @@ function BoutiqueTab({ profile }: { profile: ExhibitorProfile | null }) {
     setFreeAbove(profile?.boutique_free_shipping_above_cents ?? '');
   }, [profile]);
 
-  useEffect(() => {
-    Promise.all([
-      api.get<OnlineProduct[]>('/pos/products'),
-      api.get<ReceivedOrder[]>('/shop/my-orders'),
-    ]).then(([prodRes, ordersRes]) => {
-      if (prodRes.success && prodRes.data) setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
-      if (ordersRes.success && ordersRes.data) setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
-      setLoading(false);
-    });
-  }, []);
+  // Cached + auto-invalidated via the shared exhibitor query hooks.
+  const productsQuery = usePosProducts();
+  const ordersQuery = useShopOrders();
+  const products: OnlineProduct[] = (productsQuery.data ?? []) as OnlineProduct[];
+  const orders: ReceivedOrder[] = (ordersQuery.data ?? []) as ReceivedOrder[];
+  const loading = productsQuery.isLoading || ordersQuery.isLoading;
+  const saveProfile = useSaveExhibitorProfile();
+  const toggleProduct = useToggleProductOnline();
+  const saving = saveProfile.isPending;
+  const togglingId = toggleProduct.isPending ? toggleProduct.variables?.id ?? null : null;
 
   const handleSaveSettings = async () => {
-    setSaving(true);
     setMessage(null);
-    const res = await api.post('/exhibitors/profile', {
-      boutique_enabled: enabled ? 1 : 0,
-      boutique_intro: intro || null,
-      boutique_shipping_cents: shippingCents,
-      boutique_free_shipping_above_cents: freeAbove === '' ? null : freeAbove,
-    });
-    setSaving(false);
-    setMessage(res.success ? { type: 'success', text: 'Boutique mise a jour' } : { type: 'error', text: res.error || 'Erreur' });
+    try {
+      await saveProfile.mutateAsync({
+        boutique_enabled: enabled ? 1 : 0,
+        boutique_intro: intro || null,
+        boutique_shipping_cents: shippingCents,
+        boutique_free_shipping_above_cents: freeAbove === '' ? null : freeAbove,
+      });
+      setMessage({ type: 'success', text: 'Boutique mise a jour' });
+    } catch (e) {
+      setMessage({ type: 'error', text: (e as Error).message || 'Erreur' });
+    }
   };
 
-  const handleToggleOnline = async (p: OnlineProduct) => {
-    setTogglingId(p.id);
-    const res = await api.put(`/pos/products/${p.id}`, { is_online: p.is_online ? 0 : 1 });
-    setTogglingId(null);
-    if (res.success) {
-      setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, is_online: x.is_online ? 0 : 1 } : x)));
-    }
+  const handleToggleOnline = (p: OnlineProduct) => {
+    toggleProduct.mutate({ id: p.id, isOnline: p.is_online ? 0 : 1 });
   };
 
   const onlineCount = products.filter((p) => p.is_online === 1 && p.is_active === 1).length;
@@ -1575,50 +1549,52 @@ export function ExhibitorDashboardPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [mountedTabs, setMountedTabs] = useState<Set<TabId>>(new Set(['overview']));
 
-  // Cross-tab shared data (powers overview + tab badges)
-  const [apps, setApps] = useState<MyApplication[]>([]);
-  const [docs, setDocs] = useState<MyDocument[]>([]);
-  const [accounting, setAccounting] = useState<Accounting | null>(null);
-  const [accountingLoading, setAccountingLoading] = useState(true);
-  const [exhibitorProfile, setExhibitorProfile] = useState<ExhibitorProfile | null>(null);
+  // Cross-tab shared data. The hooks fire 4 parallel requests on mount and
+  // serve cached data to any child tab that re-requests the same key, so
+  // switching tabs no longer triggers refetches.
+  const appsQuery = useExhibitorApplications(isAuthenticated);
+  const docsQuery = useExhibitorDocuments(isAuthenticated);
+  const accountingQuery = useExhibitorAccounting(isAuthenticated);
+  const profileQuery = useExhibitorProfile(isAuthenticated);
+
+  const apps = appsQuery.data ?? [];
+  const docs = docsQuery.data ?? [];
+  const accounting = (accountingQuery.data ?? null) as Accounting | null;
+  const accountingLoading = accountingQuery.isLoading;
+  const exhibitorProfile = (profileQuery.data ?? null) as ExhibitorProfile | null;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) navigate('/login', { replace: true });
   }, [isLoading, isAuthenticated, navigate]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    Promise.all([
-      api.get<MyApplication[]>('/exhibitor-hub/my-applications'),
-      api.get<MyDocument[]>('/exhibitor-hub/my-documents'),
-      api.get<Accounting>('/pos/accounting'),
-      api.get<ExhibitorProfile>('/exhibitors/profile'),
-    ]).then(([appsRes, docsRes, accRes, profRes]) => {
-      if (appsRes.success && appsRes.data) setApps(Array.isArray(appsRes.data) ? appsRes.data : []);
-      if (docsRes.success && docsRes.data) setDocs(Array.isArray(docsRes.data) ? docsRes.data : []);
-      if (accRes.success && accRes.data) setAccounting(accRes.data as Accounting);
-      if (profRes.success && profRes.data) {
-        const d = profRes.data as any;
-        setExhibitorProfile({ ...d, domains: Array.isArray(d.domains) ? d.domains : [] });
-      }
-      setAccountingLoading(false);
-    });
-  }, [isAuthenticated]);
+  // Badge counts + alert summary. Memoized so they only recompute when their
+  // source arrays change (not on every tab switch / unrelated re-render).
+  const { tabBadge, totalAlerts } = useMemo(() => {
+    // Single pass over docs to count three orthogonal sub-states.
+    let docsExpired = 0;
+    let docsExpiringSoon = 0;
+    let docsPending = 0;
+    for (const d of docs) {
+      if (d.is_expired) docsExpired++;
+      else if (d.is_expiring_soon) docsExpiringSoon++;
+      if (d.status === 'pending') docsPending++;
+    }
+    const docsAlertCount = docsExpired + docsExpiringSoon + docsPending;
 
-  // Badge counts for tab pills
-  const appsPendingCount = apps.filter((a) => a.status === 'submitted' || a.status === 'under_review').length;
-  const docsAlertCount = docs.filter((d) => d.is_expired || d.is_expiring_soon || d.status === 'pending').length;
-  const docsHasExpired = docs.some((d) => d.is_expired);
-  const tabBadge: Partial<Record<TabId, { count: number; tone: 'red' | 'amber' | 'blue' }>> = {
-    applications: appsPendingCount > 0 ? { count: appsPendingCount, tone: 'blue' } : undefined,
-    documents: docsAlertCount > 0 ? { count: docsAlertCount, tone: docsHasExpired ? 'red' : 'amber' } : undefined,
-  };
-  const totalAlerts =
-    docs.filter((d) => d.is_expired).length +
-    docs.filter((d) => d.is_expiring_soon && !d.is_expired).length +
-    docs.filter((d) => d.status === 'pending').length +
-    appsPendingCount +
-    (accounting?.stock.low_stock_count ?? 0);
+    let appsPending = 0;
+    for (const a of apps) {
+      if (a.status === 'submitted' || a.status === 'under_review') appsPending++;
+    }
+
+    const badges: Partial<Record<TabId, { count: number; tone: 'red' | 'amber' | 'blue' }>> = {};
+    if (appsPending > 0) badges.applications = { count: appsPending, tone: 'blue' };
+    if (docsAlertCount > 0) badges.documents = { count: docsAlertCount, tone: docsExpired > 0 ? 'red' : 'amber' };
+
+    const total =
+      docsExpired + docsExpiringSoon + docsPending + appsPending + (accounting?.stock.low_stock_count ?? 0);
+
+    return { tabBadge: badges, totalAlerts: total };
+  }, [apps, docs, accounting]);
 
   const selectTab = useCallback((tab: TabId) => {
     setActiveTab(tab);

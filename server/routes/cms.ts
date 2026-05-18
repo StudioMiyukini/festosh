@@ -3,7 +3,7 @@
  */
 
 import { Hono } from 'hono';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
 import { cmsPages, cmsBlocks, cmsNavigation, festivalMembers, exhibitorProfiles } from '../db/schema.js';
@@ -132,6 +132,7 @@ cmsRoutes.post(
         .run();
 
       const page = db.select().from(cmsPages).where(eq(cmsPages.id, id)).get();
+      if (page && is_homepage) demoteOtherHomepages(page, now);
 
       return c.json({ success: true, data: formatPage(page!) }, 201);
     } catch (error) {
@@ -339,6 +340,7 @@ cmsRoutes.put('/pages/:id', authMiddleware, async (c) => {
     db.update(cmsPages).set(updateData).where(eq(cmsPages.id, pageId)).run();
 
     const updated = db.select().from(cmsPages).where(eq(cmsPages.id, pageId)).get();
+    if (updated && body.is_homepage) demoteOtherHomepages(updated, now);
 
     return c.json({ success: true, data: formatPage(updated!) });
   } catch (error) {
@@ -605,6 +607,39 @@ function assertPageWritable(
   return { ok: false, response: c.json({ success: false, error: 'Forbidden' }, 403) };
 }
 
+/**
+ * Demote any other page in the same scope (festival or exhibitor) that's
+ * currently flagged as homepage. Called whenever a page gets promoted to
+ * homepage so the invariant "at most one homepage per owner" holds.
+ * Also keeps the exhibitor's `vitrine_page_id` pointer in sync.
+ */
+function demoteOtherHomepages(page: typeof cmsPages.$inferSelect, now: number) {
+  if (page.festivalId) {
+    db.update(cmsPages)
+      .set({ isHomepage: 0, updatedAt: now })
+      .where(and(
+        eq(cmsPages.festivalId, page.festivalId),
+        eq(cmsPages.isHomepage, 1),
+        // Don't demote the page we just promoted.
+        sql`${cmsPages.id} != ${page.id}`,
+      ))
+      .run();
+  } else if (page.exhibitorId) {
+    db.update(cmsPages)
+      .set({ isHomepage: 0, updatedAt: now })
+      .where(and(
+        eq(cmsPages.exhibitorId, page.exhibitorId),
+        eq(cmsPages.isHomepage, 1),
+        sql`${cmsPages.id} != ${page.id}`,
+      ))
+      .run();
+    db.update(exhibitorProfiles)
+      .set({ vitrinePageId: page.id, updatedAt: now })
+      .where(eq(exhibitorProfiles.id, page.exhibitorId))
+      .run();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // GET /exhibitor/:exhibitorId/pages — list pages owned by an exhibitor
 // Editors see drafts; public sees published only.
@@ -672,15 +707,9 @@ cmsRoutes.post('/exhibitor/:exhibitorId/pages', authMiddleware, async (c) => {
       })
       .run();
 
-    // If this is the first homepage, link it as the vitrine page.
-    if (is_homepage) {
-      db.update(exhibitorProfiles)
-        .set({ vitrinePageId: id, updatedAt: now })
-        .where(eq(exhibitorProfiles.id, exhibitorId))
-        .run();
-    }
-
     const page = db.select().from(cmsPages).where(eq(cmsPages.id, id)).get();
+    // demoteOtherHomepages also keeps vitrine_page_id pointer in sync.
+    if (page && is_homepage) demoteOtherHomepages(page, now);
     return c.json({ success: true, data: formatPage(page!) }, 201);
   } catch (error) {
     console.error('[cms] Create exhibitor page error:', error);
