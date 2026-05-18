@@ -318,6 +318,9 @@ cmsRoutes.put('/pages/:id', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Page not found' }, 404);
     }
 
+    const auth = assertPageWritable(c, page);
+    if (!auth.ok) return auth.response;
+
     const updateData: Record<string, unknown> = { updatedAt: now };
 
     if (body.title !== undefined) updateData.title = body.title;
@@ -356,6 +359,9 @@ cmsRoutes.delete('/pages/:id', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Page not found' }, 404);
     }
 
+    const auth = assertPageWritable(c, page);
+    if (!auth.ok) return auth.response;
+
     if (page.isSystem) {
       return c.json({ success: false, error: 'Les pages systeme ne peuvent pas etre supprimees.' }, 403);
     }
@@ -392,6 +398,9 @@ cmsRoutes.post('/pages/:pageId/blocks', authMiddleware, async (c) => {
     if (!page) {
       return c.json({ success: false, error: 'Page not found' }, 404);
     }
+
+    const auth = assertPageWritable(c, page);
+    if (!auth.ok) return auth.response;
 
     const now = Math.floor(Date.now() / 1000);
     const id = crypto.randomUUID();
@@ -433,6 +442,11 @@ cmsRoutes.put('/blocks/:id', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Block not found' }, 404);
     }
 
+    const page = db.select().from(cmsPages).where(eq(cmsPages.id, block.pageId)).get();
+    if (!page) return c.json({ success: false, error: 'Block orphan' }, 404);
+    const auth = assertPageWritable(c, page);
+    if (!auth.ok) return auth.response;
+
     const updateData: Record<string, unknown> = { updatedAt: now };
 
     if (body.block_type !== undefined) updateData.blockType = body.block_type;
@@ -464,6 +478,11 @@ cmsRoutes.delete('/blocks/:id', authMiddleware, async (c) => {
       return c.json({ success: false, error: 'Block not found' }, 404);
     }
 
+    const page = db.select().from(cmsPages).where(eq(cmsPages.id, block.pageId)).get();
+    if (!page) return c.json({ success: false, error: 'Block orphan' }, 404);
+    const auth = assertPageWritable(c, page);
+    if (!auth.ok) return auth.response;
+
     db.delete(cmsBlocks).where(eq(cmsBlocks.id, blockId)).run();
 
     return c.json({ success: true, data: { message: 'Block deleted' } });
@@ -485,6 +504,11 @@ cmsRoutes.put('/pages/:pageId/blocks/reorder', authMiddleware, async (c) => {
     if (!Array.isArray(blockIds)) {
       return c.json({ success: false, error: 'block_ids must be an array' }, 400);
     }
+
+    const page = db.select().from(cmsPages).where(eq(cmsPages.id, pageId)).get();
+    if (!page) return c.json({ success: false, error: 'Page not found' }, 404);
+    const auth = assertPageWritable(c, page);
+    if (!auth.ok) return auth.response;
 
     const now = Math.floor(Date.now() / 1000);
 
@@ -529,6 +553,56 @@ async function getOwnedExhibitorId(c: any, exhibitorId?: string): Promise<string
   // No explicit id — return the user's own exhibitor profile id.
   const ex = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.userId, userId)).get();
   return ex ? ex.id : null;
+}
+
+/**
+ * Ownership gate for any page-level write (PUT /pages/:id, DELETE /pages/:id,
+ * POST /pages/:id/blocks, PUT /pages/:id/blocks/reorder, and indirectly for
+ * block-level writes via the page they belong to).
+ *
+ * Accepts the loaded page row and the Hono context. Returns:
+ *   - `{ ok: true }` if the caller may write to this page;
+ *   - `{ ok: false, response: c.json(...) }` otherwise — the caller should
+ *     simply `return response`.
+ *
+ * Platform admins always pass.
+ * Festival pages require the caller to be a member with role >= editor.
+ * Exhibitor pages require the caller to own that exhibitor profile.
+ */
+function assertPageWritable(
+  c: any,
+  page: typeof cmsPages.$inferSelect,
+): { ok: true } | { ok: false; response: Response } {
+  const userId = c.get('userId');
+  if (!userId) return { ok: false, response: c.json({ success: false, error: 'Authentication required' }, 401) };
+
+  const platformRole = c.get('userRole');
+  if (platformRole === 'admin') return { ok: true };
+
+  // Festival-owned page → must be a member with editor+ role.
+  if (page.festivalId) {
+    const membership = db
+      .select()
+      .from(festivalMembers)
+      .where(and(eq(festivalMembers.festivalId, page.festivalId), eq(festivalMembers.userId, userId)))
+      .get();
+    if (!membership || !hasMinRole(membership.role ?? 'exhibitor', 'editor')) {
+      return { ok: false, response: c.json({ success: false, error: 'Forbidden' }, 403) };
+    }
+    return { ok: true };
+  }
+
+  // Exhibitor-owned page → must own that exhibitor profile.
+  if (page.exhibitorId) {
+    const ex = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.id, page.exhibitorId)).get();
+    if (!ex || ex.userId !== userId) {
+      return { ok: false, response: c.json({ success: false, error: 'Forbidden' }, 403) };
+    }
+    return { ok: true };
+  }
+
+  // Orphan page (shouldn't happen) — deny by default.
+  return { ok: false, response: c.json({ success: false, error: 'Forbidden' }, 403) };
 }
 
 // ---------------------------------------------------------------------------

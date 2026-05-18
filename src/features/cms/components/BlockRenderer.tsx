@@ -116,12 +116,15 @@ function HeroBlock({ content }: { content: HeroBlockContent }) {
 // Text
 // ---------------------------------------------------------------------------
 
-function TextBlock({ content }: { content: TextBlockContent }) {
+function TextBlock({ content }: { content: TextBlockContent & { html?: string } }) {
+  // Editors historically wrote either `body` (festival CMS) or `html` (the
+  // exhibitor CMS editor). Accept both so existing content keeps rendering.
+  const raw = content.body || content.html || '';
   return (
     <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
       <div
         className="prose prose-neutral max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content.body || '') }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(raw) }}
       />
     </section>
   );

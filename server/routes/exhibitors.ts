@@ -16,6 +16,7 @@ import {
   boothApplications,
   editions,
   festivalMembers,
+  cmsPages,
 } from '../db/schema.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole, hasMinRole } from '../middleware/festival-auth.js';
@@ -139,12 +140,27 @@ exhibitorRoutes.post('/profile', authMiddleware, async (c) => {
         boutique_currency: 'boutiqueCurrency',
         boutique_shipping_cents: 'boutiqueShippingCents',
         boutique_free_shipping_above_cents: 'boutiqueFreeShippingAboveCents',
-        vitrine_page_id: 'vitrinePageId',
+        // NOTE: `vitrine_page_id` is intentionally NOT in this whitelist —
+        // it must only be set server-side (e.g. when initialize-vitrine runs)
+        // or via the dedicated PATCH below, after validating ownership.
       };
 
       for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
         if (body[bodyKey] !== undefined) {
           updateData[schemaKey] = body[bodyKey];
+        }
+      }
+
+      // vitrine_page_id: dedicated path with ownership validation.
+      if (body.vitrine_page_id !== undefined) {
+        if (body.vitrine_page_id === null) {
+          updateData.vitrinePageId = null;
+        } else {
+          const target = db.select().from(cmsPages).where(eq(cmsPages.id, body.vitrine_page_id)).get();
+          if (!target || target.exhibitorId !== existing.id) {
+            return c.json({ success: false, error: 'Cette page ne vous appartient pas.' }, 403);
+          }
+          updateData.vitrinePageId = body.vitrine_page_id;
         }
       }
 

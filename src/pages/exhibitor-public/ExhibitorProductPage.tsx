@@ -3,9 +3,10 @@
  * "Add to cart" CTA. Stock-aware.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useOutletContext } from 'react-router-dom';
 import { Loader2, Package, Plus, Minus, ShoppingCart, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { api } from '@/lib/api-client';
 import { useShopCartStore } from '@/stores/shop-cart-store';
 import { formatCurrency } from '@/lib/format-utils';
@@ -47,9 +48,11 @@ export function ExhibitorProductPage() {
 
   useEffect(() => {
     if (!slug || !productSlug) return;
+    let cancelled = false;
     setLoading(true);
     setNotFound(false);
     api.get<ShopProduct>(`/public/exhibitors/by-slug/${slug}/products/${productSlug}`).then((res) => {
+      if (cancelled) return;
       if (res.success && res.data) {
         setProduct(res.data as ShopProduct);
         setActiveImage((res.data as ShopProduct).image_url);
@@ -58,6 +61,7 @@ export function ExhibitorProductPage() {
       }
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [slug, productSlug]);
 
   const handleAdd = () => {
@@ -150,7 +154,10 @@ export function ExhibitorProductPage() {
           )}
 
           {product.online_description && (
-            <div className="mt-4 rounded-xl bg-muted/50 p-4 text-sm text-foreground" dangerouslySetInnerHTML={{ __html: product.online_description }} />
+            <SanitizedHtml
+              html={product.online_description}
+              className="mt-4 rounded-xl bg-muted/50 p-4 text-sm text-foreground"
+            />
           )}
 
           {/* Qty + add to cart */}
@@ -185,4 +192,11 @@ export function ExhibitorProductPage() {
       </div>
     </div>
   );
+}
+
+/** Renders user-supplied HTML safely. DOMPurify strips scripts and event
+ *  handlers; we memoize so a re-render doesn't re-sanitize the same string. */
+function SanitizedHtml({ html, className }: { html: string; className?: string }) {
+  const safe = useMemo(() => DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }), [html]);
+  return <div className={className} dangerouslySetInnerHTML={{ __html: safe }} />;
 }
