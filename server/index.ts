@@ -61,6 +61,8 @@ import { billingRoutes } from './routes/billing.js';
 import { mediaRoutes } from './routes/media.js';
 import { regulationRoutes } from './routes/regulations.js';
 import { volunteerHubRoutes } from './routes/volunteer-hub.js';
+import { publicExhibitorRoutes } from './routes/public-exhibitor.js';
+import { shopRoutes } from './routes/shop.js';
 
 // ---------------------------------------------------------------------------
 // Create the Hono app
@@ -188,6 +190,8 @@ app.route('/api/chatbot', chatbotRoutes);
 app.route('/api/platform-admin', platformAdminRoutes);
 app.route('/api/messaging', messagingRoutes);
 app.route('/api/exhibitor-hub', exhibitorDirectoryRoutes);
+app.route('/api/public/exhibitors', publicExhibitorRoutes);
+app.route('/api/shop', shopRoutes);
 app.route('/api/pos', posRoutes);
 app.route('/api/ticketing', ticketingRoutes);
 app.route('/api/marketplace', marketplaceRoutes);

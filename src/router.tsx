@@ -72,6 +72,7 @@ import { WorkspaceKanbanPage } from '@/pages/festival-admin/WorkspaceKanbanPage'
 // New platform pages
 import { MessagingPage } from '@/pages/platform/MessagingPage';
 import { ExhibitorDashboardPage } from '@/pages/platform/ExhibitorDashboardPage';
+import { ExhibitorCmsEditorPage } from '@/pages/platform/ExhibitorCmsEditorPage';
 import { ExhibitorDirectoryPage } from '@/pages/platform/ExhibitorDirectoryPage';
 import { PosTerminalPage } from '@/pages/platform/PosTerminalPage';
 import { PosProductsPage } from '@/pages/platform/PosProductsPage';
@@ -86,6 +87,14 @@ import { OrganizerDashboardPage } from '@/pages/platform/OrganizerDashboardPage'
 
 // Invite join page
 import { JoinInvitePage } from '@/pages/platform/JoinInvitePage';
+
+// Public exhibitor (vitrine + boutique)
+import { ExhibitorPublicLayout } from '@/layouts/ExhibitorPublicLayout';
+import { ExhibitorVitrinePage } from '@/pages/exhibitor-public/ExhibitorVitrinePage';
+import { ExhibitorBoutiquePage } from '@/pages/exhibitor-public/ExhibitorBoutiquePage';
+import { ExhibitorProductPage } from '@/pages/exhibitor-public/ExhibitorProductPage';
+import { ExhibitorCheckoutPage } from '@/pages/exhibitor-public/ExhibitorCheckoutPage';
+import { OrderConfirmationPage } from '@/pages/exhibitor-public/OrderConfirmationPage';
 
 // Platform admin pages
 import { PlatformAdminLayout } from '@/layouts/PlatformAdminLayout';
@@ -125,6 +134,7 @@ export const router = createBrowserRouter([
       { path: '/profile', element: <ProfilePage /> },
       { path: '/messaging', element: <MessagingPage /> },
       { path: '/exhibitor', element: <ExhibitorDashboardPage /> },
+      { path: '/exhibitor/cms/:pageId', element: <ExhibitorCmsEditorPage /> },
       { path: '/exhibitors', element: <ExhibitorDirectoryPage /> },
       { path: '/pos', element: <PosTerminalPage /> },
       { path: '/pos/products', element: <PosProductsPage /> },
@@ -143,6 +153,26 @@ export const router = createBrowserRouter([
       { path: '/docs/volunteer', element: <DocsVolunteerPage /> },
       { path: '/docs/exhibitor', element: <DocsExhibitorPage /> },
       { path: '/docs/organizer', element: <DocsOrganizerPage /> },
+    ],
+  },
+
+  // Order confirmation (standalone, no exhibitor context)
+  {
+    element: <PlatformLayout />,
+    children: [
+      { path: '/order/:orderNumber', element: <OrderConfirmationPage /> },
+    ],
+  },
+
+  // Public exhibitor (vitrine + boutique)
+  {
+    path: '/e/:slug',
+    element: <ExhibitorPublicLayout />,
+    children: [
+      { index: true, element: <ExhibitorVitrinePage /> },
+      { path: 'boutique', element: <ExhibitorBoutiquePage /> },
+      { path: 'p/:productSlug', element: <ExhibitorProductPage /> },
+      { path: 'checkout', element: <ExhibitorCheckoutPage /> },
     ],
   },
 

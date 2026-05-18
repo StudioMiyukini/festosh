@@ -224,13 +224,14 @@ export const editions = sqliteTable(
 );
 
 // ─── CMS Pages ──────────────────────────────────────────────────────────────
+// Owned by either a festival (festivalId set) OR an exhibitor (exhibitorId set).
+// Exactly one of festivalId / exhibitorId must be set; enforced at the route layer.
 export const cmsPages = sqliteTable(
   'cms_pages',
   {
     id: id(),
-    festivalId: text('festival_id')
-      .notNull()
-      .references(() => festivals.id),
+    festivalId: text('festival_id').references(() => festivals.id),
+    exhibitorId: text('exhibitor_id').references(() => exhibitorProfiles.id),
     slug: text('slug'),
     title: text('title'),
     isPublished: integer('is_published').default(0),
@@ -246,6 +247,8 @@ export const cmsPages = sqliteTable(
     uniqueIndex('cms_pages_festival_slug_idx').on(table.festivalId, table.slug),
     index('cms_pages_festival_id_idx').on(table.festivalId),
     index('cms_pages_is_published_idx').on(table.isPublished),
+    index('cms_pages_exhibitor_id_idx').on(table.exhibitorId),
+    uniqueIndex('cms_pages_exhibitor_slug_idx').on(table.exhibitorId, table.slug),
   ],
 );
 
@@ -341,12 +344,23 @@ export const exhibitorProfiles = sqliteTable(
     isPmr: integer('is_pmr').default(0), // Personne a mobilite reduite
     domains: text('domains').default('[]'), // JSON array of domain strings
     directoryVisible: integer('directory_visible').default(1), // 0 = hidden, 1 = visible in directory
+    // Vitrine + boutique en ligne
+    slug: text('slug'), // URL slug for public vitrine /e/:slug
+    boutiqueEnabled: integer('boutique_enabled').default(0), // 0 = vitrine only, 1 = shop active
+    boutiqueIntro: text('boutique_intro'), // short markdown shown above product grid
+    boutiqueCurrency: text('boutique_currency').default('EUR'),
+    boutiqueShippingCents: integer('boutique_shipping_cents').default(0), // flat shipping
+    boutiqueFreeShippingAboveCents: integer('boutique_free_shipping_above_cents'),
+    vitrinePageId: text('vitrine_page_id'), // optional FK to cms_pages.id — exhibitor's public homepage
+    paymentProvider: text('payment_provider').default('mock'), // mock | stripe
+    stripeAccountId: text('stripe_account_id'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
     index('exhibitor_profiles_user_id_idx').on(table.userId),
     index('exhibitor_profiles_category_idx').on(table.category),
+    uniqueIndex('exhibitor_profiles_slug_idx').on(table.slug),
   ],
 );
 
@@ -1576,6 +1590,10 @@ export const products = sqliteTable(
     isOnline: integer('is_online').notNull().default(0),
     weightGrams: integer('weight_grams'),
     sortOrder: integer('sort_order').default(0),
+    galleryUrls: text('gallery_urls').default('[]'), // JSON array of image URLs
+    onlineDescription: text('online_description'), // richer description for the public shop
+    onlineSortOrder: integer('online_sort_order').default(0),
+    slug: text('slug'), // URL-friendly key used on /e/:slug/p/:productSlug
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -1584,6 +1602,80 @@ export const products = sqliteTable(
     index('prod_category_idx').on(table.categoryId),
     index('prod_sku_idx').on(table.sku),
     index('prod_active_idx').on(table.isActive),
+    index('prod_online_idx').on(table.isOnline),
+    index('prod_slug_exhibitor_idx').on(table.exhibitorId, table.slug),
+  ],
+);
+
+// ─── Shop: Boutique en ligne orders (exhibitor-scoped, distinct from marketplace) ──
+export const shopOrders = sqliteTable(
+  'shop_orders',
+  {
+    id: id(),
+    exhibitorId: text('exhibitor_id')
+      .notNull()
+      .references(() => exhibitorProfiles.id),
+    orderNumber: text('order_number').notNull(),
+    status: text('status').notNull().default('pending'),
+    customerUserId: text('customer_user_id').references(() => profiles.id),
+    customerEmail: text('customer_email').notNull(),
+    customerFirstName: text('customer_first_name'),
+    customerLastName: text('customer_last_name'),
+    customerPhone: text('customer_phone'),
+    shippingAddressLine1: text('shipping_address_line1'),
+    shippingAddressLine2: text('shipping_address_line2'),
+    shippingPostalCode: text('shipping_postal_code'),
+    shippingCity: text('shipping_city'),
+    shippingCountry: text('shipping_country').default('FR'),
+    billingAddressLine1: text('billing_address_line1'),
+    billingAddressLine2: text('billing_address_line2'),
+    billingPostalCode: text('billing_postal_code'),
+    billingCity: text('billing_city'),
+    billingCountry: text('billing_country'),
+    subtotalCents: integer('subtotal_cents').notNull().default(0),
+    shippingCents: integer('shipping_cents').notNull().default(0),
+    taxCents: integer('tax_cents').notNull().default(0),
+    totalCents: integer('total_cents').notNull().default(0),
+    currency: text('currency').notNull().default('EUR'),
+    paymentProvider: text('payment_provider'),
+    paymentIntentId: text('payment_intent_id'),
+    paymentStatus: text('payment_status').default('pending'),
+    paymentMethod: text('payment_method'),
+    notes: text('notes'),
+    trackingUrl: text('tracking_url'),
+    paidAt: integer('paid_at'),
+    shippedAt: integer('shipped_at'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex('shop_orders_order_number_idx').on(table.orderNumber),
+    index('shop_orders_exhibitor_id_idx').on(table.exhibitorId),
+    index('shop_orders_customer_user_id_idx').on(table.customerUserId),
+    index('shop_orders_status_idx').on(table.status),
+    index('shop_orders_payment_intent_idx').on(table.paymentIntentId),
+  ],
+);
+
+export const shopOrderItems = sqliteTable(
+  'shop_order_items',
+  {
+    id: id(),
+    orderId: text('order_id')
+      .notNull()
+      .references(() => shopOrders.id, { onDelete: 'cascade' }),
+    productId: text('product_id').references(() => products.id),
+    productName: text('product_name').notNull(),
+    productSku: text('product_sku'),
+    unitPriceCents: integer('unit_price_cents').notNull(),
+    quantity: integer('quantity').notNull().default(1),
+    taxRate: real('tax_rate').notNull().default(0),
+    subtotalCents: integer('subtotal_cents').notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('shop_order_items_order_id_idx').on(table.orderId),
+    index('shop_order_items_product_id_idx').on(table.productId),
   ],
 );
 

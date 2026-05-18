@@ -133,12 +133,41 @@ exhibitorRoutes.post('/profile', authMiddleware, async (c) => {
         billing_city: 'billingCity',
         billing_country: 'billingCountry',
         is_pmr: 'isPmr',
+        slug: 'slug',
+        boutique_enabled: 'boutiqueEnabled',
+        boutique_intro: 'boutiqueIntro',
+        boutique_currency: 'boutiqueCurrency',
+        boutique_shipping_cents: 'boutiqueShippingCents',
+        boutique_free_shipping_above_cents: 'boutiqueFreeShippingAboveCents',
+        vitrine_page_id: 'vitrinePageId',
       };
 
       for (const [bodyKey, schemaKey] of Object.entries(keyMap)) {
         if (body[bodyKey] !== undefined) {
           updateData[schemaKey] = body[bodyKey];
         }
+      }
+
+      // Validate slug uniqueness when changed
+      if (updateData.slug !== undefined && typeof updateData.slug === 'string') {
+        const desired = updateData.slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+        if (!desired) {
+          return c.json({ success: false, error: 'Slug invalide' }, 400);
+        }
+        const conflict = db
+          .select()
+          .from(exhibitorProfiles)
+          .where(eq(exhibitorProfiles.slug, desired))
+          .get();
+        if (conflict && conflict.userId !== userId) {
+          return c.json({ success: false, error: 'Cet identifiant est deja utilise.' }, 409);
+        }
+        updateData.slug = desired;
+      }
+
+      // Coerce boolean-ish numbers
+      if (updateData.boutiqueEnabled !== undefined) {
+        updateData.boutiqueEnabled = updateData.boutiqueEnabled ? 1 : 0;
       }
 
       if (body.social_links !== undefined) {
@@ -164,10 +193,21 @@ exhibitorRoutes.post('/profile', authMiddleware, async (c) => {
       // Create
       const id = crypto.randomUUID();
 
+      // Auto-generate a unique slug from the name. Fallback to id-suffix on collision.
+      const baseName = (body.trade_name || body.company_name || 'exposant').toString().trim().toLowerCase();
+      const baseSlug = baseName
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'exposant';
+      let candidate = baseSlug;
+      const existingSlug = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.slug, candidate)).get();
+      if (existingSlug) candidate = `${baseSlug}-${id.slice(0, 6)}`;
+
       db.insert(exhibitorProfiles)
         .values({
           id,
           userId,
+          slug: candidate,
           companyName: body.company_name || null,
           tradeName: body.trade_name || null,
           activityType: body.activity_type || null,

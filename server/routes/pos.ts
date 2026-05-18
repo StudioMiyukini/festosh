@@ -160,6 +160,10 @@ posRoutes.post('/products', async (c) => {
       isOnline: body.is_online ?? 0,
       weightGrams: body.weight_grams || null,
       sortOrder: body.sort_order ?? 0,
+      galleryUrls: JSON.stringify(body.gallery_urls || []),
+      onlineDescription: body.online_description || null,
+      onlineSortOrder: body.online_sort_order ?? 0,
+      slug: body.slug || null,
       createdAt: now,
       updatedAt: now,
     }).run();
@@ -188,11 +192,15 @@ posRoutes.put('/products/:id', async (c) => {
       category_id: 'categoryId', price_cents: 'priceCents', cost_cents: 'costCents',
       tax_rate: 'taxRate', stock_quantity: 'stockQuantity', stock_alert_threshold: 'stockAlertThreshold',
       is_active: 'isActive', is_online: 'isOnline', weight_grams: 'weightGrams', sort_order: 'sortOrder',
+      online_description: 'onlineDescription', online_sort_order: 'onlineSortOrder', slug: 'slug',
     };
 
     const update: Record<string, unknown> = { updatedAt: Math.floor(Date.now() / 1000) };
     for (const [bk, sk] of Object.entries(keyMap)) {
       if (body[bk] !== undefined) update[sk] = body[bk];
+    }
+    if (body.gallery_urls !== undefined) {
+      update.galleryUrls = JSON.stringify(body.gallery_urls);
     }
 
     db.update(products).set(update).where(eq(products.id, id)).run();

@@ -6,7 +6,7 @@ import { Hono } from 'hono';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db/index.js';
-import { cmsPages, cmsBlocks, cmsNavigation, festivalMembers } from '../db/schema.js';
+import { cmsPages, cmsBlocks, cmsNavigation, festivalMembers, exhibitorProfiles } from '../db/schema.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { festivalMemberMiddleware, requireFestivalRole, hasMinRole } from '../middleware/festival-auth.js';
 import { formatResponse } from '../lib/format.js';
@@ -507,6 +507,222 @@ cmsRoutes.put('/pages/:pageId/blocks/reorder', authMiddleware, async (c) => {
   } catch (error) {
     console.error('[cms] Reorder blocks error:', error);
     return c.json({ success: false, error: 'Failed to reorder blocks' }, 500);
+  }
+});
+
+// ===========================================================================
+// EXHIBITOR PAGES — vitrine + additional pages per exhibitor
+// ===========================================================================
+
+// Helper: ensure the current user owns the given exhibitor profile (or is admin).
+async function getOwnedExhibitorId(c: any, exhibitorId?: string): Promise<string | null> {
+  const userId = c.get('userId');
+  if (!userId) return null;
+  const role = c.get('userRole');
+
+  if (exhibitorId) {
+    const ex = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.id, exhibitorId)).get();
+    if (!ex) return null;
+    if (role === 'admin') return ex.id;
+    return ex.userId === userId ? ex.id : null;
+  }
+  // No explicit id — return the user's own exhibitor profile id.
+  const ex = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.userId, userId)).get();
+  return ex ? ex.id : null;
+}
+
+// ---------------------------------------------------------------------------
+// GET /exhibitor/:exhibitorId/pages — list pages owned by an exhibitor
+// Editors see drafts; public sees published only.
+// ---------------------------------------------------------------------------
+cmsRoutes.get('/exhibitor/:exhibitorId/pages', optionalAuth, async (c) => {
+  try {
+    const exhibitorId = c.req.param('exhibitorId');
+    const userId = c.get('userId');
+    const role = c.get('userRole');
+
+    let isEditor = role === 'admin';
+    if (!isEditor && userId) {
+      const ex = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.id, exhibitorId)).get();
+      if (ex && ex.userId === userId) isEditor = true;
+    }
+
+    const rows = isEditor
+      ? db.select().from(cmsPages).where(eq(cmsPages.exhibitorId, exhibitorId)).all()
+      : db
+          .select()
+          .from(cmsPages)
+          .where(and(eq(cmsPages.exhibitorId, exhibitorId), eq(cmsPages.isPublished, 1)))
+          .all();
+
+    rows.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    return c.json({ success: true, data: rows.map(formatPage) });
+  } catch (error) {
+    console.error('[cms] List exhibitor pages error:', error);
+    return c.json({ success: false, error: 'Failed to list pages' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /exhibitor/:exhibitorId/pages — create page for an exhibitor
+// ---------------------------------------------------------------------------
+cmsRoutes.post('/exhibitor/:exhibitorId/pages', authMiddleware, async (c) => {
+  try {
+    const exhibitorId = c.req.param('exhibitorId');
+    const ownedId = await getOwnedExhibitorId(c, exhibitorId);
+    if (!ownedId) return c.json({ success: false, error: 'Forbidden' }, 403);
+
+    const body = await c.req.json();
+    const { title, slug, is_published, is_homepage, meta_description, sort_order } = body;
+    if (!title || !slug) return c.json({ success: false, error: 'Title and slug are required' }, 400);
+
+    const now = Math.floor(Date.now() / 1000);
+    const id = crypto.randomUUID();
+    const userId = c.get('userId');
+
+    db.insert(cmsPages)
+      .values({
+        id,
+        festivalId: null,
+        exhibitorId,
+        title,
+        slug,
+        isPublished: is_published ? 1 : 0,
+        isHomepage: is_homepage ? 1 : 0,
+        isSystem: 0,
+        metaDescription: meta_description || null,
+        sortOrder: sort_order || 0,
+        createdBy: userId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    // If this is the first homepage, link it as the vitrine page.
+    if (is_homepage) {
+      db.update(exhibitorProfiles)
+        .set({ vitrinePageId: id, updatedAt: now })
+        .where(eq(exhibitorProfiles.id, exhibitorId))
+        .run();
+    }
+
+    const page = db.select().from(cmsPages).where(eq(cmsPages.id, id)).get();
+    return c.json({ success: true, data: formatPage(page!) }, 201);
+  } catch (error) {
+    console.error('[cms] Create exhibitor page error:', error);
+    return c.json({ success: false, error: 'Failed to create page' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /exhibitor/:exhibitorId/pages/initialize-vitrine — create default vitrine
+// page (homepage with starter blocks) if the exhibitor doesn't have one yet.
+// ---------------------------------------------------------------------------
+cmsRoutes.post('/exhibitor/:exhibitorId/pages/initialize-vitrine', authMiddleware, async (c) => {
+  try {
+    const exhibitorId = c.req.param('exhibitorId');
+    const ownedId = await getOwnedExhibitorId(c, exhibitorId);
+    if (!ownedId) return c.json({ success: false, error: 'Forbidden' }, 403);
+
+    const ex = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.id, exhibitorId)).get();
+    if (!ex) return c.json({ success: false, error: 'Exhibitor not found' }, 404);
+
+    // Skip if vitrine already exists
+    const existing = db
+      .select()
+      .from(cmsPages)
+      .where(and(eq(cmsPages.exhibitorId, exhibitorId), eq(cmsPages.slug, 'accueil')))
+      .get();
+    if (existing) {
+      return c.json({ success: true, data: formatPage(existing), reused: true });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const userId = c.get('userId');
+    const pageId = crypto.randomUUID();
+
+    db.insert(cmsPages)
+      .values({
+        id: pageId,
+        festivalId: null,
+        exhibitorId,
+        slug: 'accueil',
+        title: ex.tradeName || ex.companyName || 'Ma vitrine',
+        isPublished: 0, // user must publish manually
+        isHomepage: 1,
+        isSystem: 1,
+        sortOrder: 0,
+        createdBy: userId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    // Seed starter blocks
+    const heroId = crypto.randomUUID();
+    db.insert(cmsBlocks).values({
+      id: heroId, pageId,
+      blockType: 'hero',
+      content: JSON.stringify({
+        title: ex.tradeName || ex.companyName || 'Bienvenue',
+        subtitle: ex.description || 'Decouvrez mes creations',
+        image_url: ex.photoUrl || ex.logoUrl || null,
+        cta_label: ex.boutiqueEnabled ? 'Voir la boutique' : null,
+        cta_link: ex.boutiqueEnabled ? `/e/${ex.slug}/boutique` : null,
+      }),
+      settings: JSON.stringify({}),
+      sortOrder: 0, isVisible: 1, createdAt: now, updatedAt: now,
+    }).run();
+
+    db.insert(cmsBlocks).values({
+      id: crypto.randomUUID(), pageId,
+      blockType: 'text',
+      content: JSON.stringify({ html: '<h2>A propos</h2><p>Presentez votre univers, votre demarche et vos creations.</p>' }),
+      settings: JSON.stringify({}),
+      sortOrder: 1, isVisible: 1, createdAt: now, updatedAt: now,
+    }).run();
+
+    db.update(exhibitorProfiles)
+      .set({ vitrinePageId: pageId, updatedAt: now })
+      .where(eq(exhibitorProfiles.id, exhibitorId))
+      .run();
+
+    const page = db.select().from(cmsPages).where(eq(cmsPages.id, pageId)).get();
+    return c.json({ success: true, data: formatPage(page!), reused: false }, 201);
+  } catch (error) {
+    console.error('[cms] Initialize vitrine error:', error);
+    return c.json({ success: false, error: 'Failed to initialize vitrine' }, 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /exhibitor/by-slug/:slug/pages/:pageSlug — public page fetch by slug.
+// ---------------------------------------------------------------------------
+cmsRoutes.get('/exhibitor/by-slug/:slug/pages/:pageSlug', async (c) => {
+  try {
+    const slug = c.req.param('slug');
+    const pageSlug = c.req.param('pageSlug');
+
+    const ex = db.select().from(exhibitorProfiles).where(eq(exhibitorProfiles.slug, slug)).get();
+    if (!ex) return c.json({ success: false, error: 'Exhibitor not found' }, 404);
+
+    const page = db
+      .select()
+      .from(cmsPages)
+      .where(and(eq(cmsPages.exhibitorId, ex.id), eq(cmsPages.slug, pageSlug), eq(cmsPages.isPublished, 1)))
+      .get();
+    if (!page) return c.json({ success: false, error: 'Page not found' }, 404);
+
+    const blocks = db.select().from(cmsBlocks).where(eq(cmsBlocks.pageId, page.id)).all();
+    blocks.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+    return c.json({
+      success: true,
+      data: { ...formatPage(page), blocks: blocks.filter((b) => b.isVisible === 1).map(formatBlock) },
+    });
+  } catch (error) {
+    console.error('[cms] Get exhibitor page by slug error:', error);
+    return c.json({ success: false, error: 'Failed to fetch page' }, 500);
   }
 });
 

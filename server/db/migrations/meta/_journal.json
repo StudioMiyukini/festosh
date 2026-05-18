@@ -225,6 +225,20 @@
       "when": 1775943000000,
       "tag": "0031_add_volunteer_profiles_multi_type",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1775944000000,
+      "tag": "0032_add_exhibitor_vitrine_boutique",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1775945000000,
+      "tag": "0033_rename_shop_orders",
+      "breakpoints": true
     }
   ]
 }
