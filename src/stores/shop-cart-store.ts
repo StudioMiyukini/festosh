@@ -17,9 +17,14 @@ export interface CartItem {
   tax_rate: number;
 }
 
-interface ExhibitorCart {
+export interface ExhibitorCart {
   items: CartItem[];
 }
+
+/** Stable empty-cart reference — pass this in selectors to avoid creating
+ *  a new `{ items: [] }` literal on every render, which would trip Zustand's
+ *  Object.is equality check and cause infinite re-render loops. */
+export const EMPTY_CART: ExhibitorCart = Object.freeze({ items: [] }) as ExhibitorCart;
 
 interface ShopCartStore {
   carts: Record<string, ExhibitorCart>;

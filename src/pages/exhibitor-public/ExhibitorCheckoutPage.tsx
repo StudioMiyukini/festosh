@@ -14,7 +14,7 @@ import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom
 import { Loader2, Trash2, Plus, Minus, ShoppingBag, ArrowLeft, Lock, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
-import { useShopCartStore, getCartTotals } from '@/stores/shop-cart-store';
+import { useShopCartStore, getCartTotals, EMPTY_CART } from '@/stores/shop-cart-store';
 import { formatCurrency } from '@/lib/format-utils';
 
 interface OutletCtx {
@@ -46,7 +46,7 @@ export function ExhibitorCheckoutPage() {
   const navigate = useNavigate();
   const { exhibitor } = useOutletContext<OutletCtx>();
   const { profile } = useAuthStore();
-  const cart = useShopCartStore((s) => (slug ? s.carts[slug] : undefined) || { items: [] });
+  const cart = useShopCartStore((s) => (slug && s.carts[slug]) || EMPTY_CART);
   const updateQty = useShopCartStore((s) => s.updateQuantity);
   const removeItem = useShopCartStore((s) => s.removeItem);
   const clearCart = useShopCartStore((s) => s.clearCart);

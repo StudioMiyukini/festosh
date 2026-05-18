@@ -11,7 +11,7 @@ import { Link, Outlet, useParams, useLocation } from 'react-router-dom';
 import { ShoppingBag, Globe, ArrowLeft, Loader2, ExternalLink } from 'lucide-react';
 import { Logo } from '@/components/shared/Logo';
 import { api } from '@/lib/api-client';
-import { useShopCartStore, getCartTotals } from '@/stores/shop-cart-store';
+import { useShopCartStore, getCartTotals, EMPTY_CART } from '@/stores/shop-cart-store';
 
 interface PublicExhibitor {
   id: string;
@@ -42,7 +42,7 @@ export function ExhibitorPublicLayout() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  const cart = useShopCartStore((s) => (slug ? s.carts[slug] : undefined) || { items: [] });
+  const cart = useShopCartStore((s) => (slug && s.carts[slug]) || EMPTY_CART);
   const { item_count } = getCartTotals(cart);
 
   useEffect(() => {
