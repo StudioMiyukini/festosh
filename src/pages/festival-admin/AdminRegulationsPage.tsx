@@ -206,8 +206,8 @@ export function AdminRegulationsPage() {
       title: reg.title,
       content: reg.content,
       category: reg.category,
-      published: reg.is_published,
-      requires_acceptance: reg.requires_acceptance,
+      published: !!reg.is_published,
+      requires_acceptance: !!reg.requires_acceptance,
     });
     setView('editor');
   };

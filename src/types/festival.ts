@@ -76,6 +76,28 @@ export interface Festival {
   email_config: EmailConfig | null;
   /** Publication status. */
   status: FestivalStatus;
+  /** City of the festival (denormalized from location_address). */
+  city?: string | null;
+  /** Country of the festival. */
+  country?: string | null;
+  /** Organising entity name (legal). */
+  org_name?: string | null;
+  /** Organising entity type (e.g. association, SAS). */
+  org_type?: string | null;
+  /** SIRET number of the organising entity. */
+  org_siret?: string | null;
+  /** RNA number (associations only). */
+  org_rna?: string | null;
+  /** Address of the organising entity. */
+  org_address?: string | null;
+  /** Phone of the organising entity. */
+  org_phone?: string | null;
+  /** Email of the organising entity. */
+  org_email?: string | null;
+  /** IBAN of the organising entity. */
+  org_iban?: string | null;
+  /** Insurance information of the organising entity. */
+  org_insurance?: string | null;
   /** User id of the festival creator. */
   created_by: string;
   /** ISO 8601 timestamp. */

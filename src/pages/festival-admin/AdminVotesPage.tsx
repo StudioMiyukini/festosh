@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactElement } from 'react';
 import {
   Plus,
   Pencil,
@@ -180,7 +180,7 @@ export function AdminVotesPage() {
   const renderStars = (rating: number) => {
     const full = Math.floor(rating);
     const half = rating - full >= 0.5;
-    const stars: JSX.Element[] = [];
+    const stars: ReactElement[] = [];
     for (let i = 0; i < 5; i++) {
       if (i < full) {
         stars.push(<Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />);

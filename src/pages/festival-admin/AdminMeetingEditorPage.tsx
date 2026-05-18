@@ -173,11 +173,11 @@ function defaultContentForType(type: MeetingBlockType): MeetingBlockContent {
 
 // ─── Debounce hook ────────────────────────────────────────────────────────────
 
-function useDebouncedCallback<T extends (...args: unknown[]) => void>(
+function useDebouncedCallback<T extends (...args: never[]) => void>(
   callback: T,
   delay: number,
 ): T {
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callbackRef = useRef(callback);
 
   useEffect(() => {
@@ -191,12 +191,12 @@ function useDebouncedCallback<T extends (...args: unknown[]) => void>(
   }, []);
 
   return useCallback(
-    (...args: unknown[]) => {
+    ((...args: Parameters<T>) => {
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => callbackRef.current(...args), delay);
-    },
+      timerRef.current = setTimeout(() => (callbackRef.current as (...a: Parameters<T>) => void)(...args), delay);
+    }) as T,
     [delay],
-  ) as T;
+  );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -222,7 +222,7 @@ export function AdminMeetingEditorPage() {
 
   // Track which block is focused so polling doesn't clobber edits
   const focusedBlockIdRef = useRef<string | null>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval>>();
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ─── Fetch meeting ──────────────────────────────────────────────────────
 

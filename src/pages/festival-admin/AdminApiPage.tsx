@@ -13,6 +13,7 @@ import {
   Shield,
   Clock,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react';
 import { useTenantStore } from '@/stores/tenant-store';
 import { api } from '@/lib/api-client';

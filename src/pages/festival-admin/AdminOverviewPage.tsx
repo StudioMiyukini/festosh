@@ -123,8 +123,8 @@ export function AdminOverviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [showWizard, setShowWizard] = useState(true);
-  const [festivalStatus, setFestivalStatus] = useState(festival?.status || 'draft');
-  const [editionStatus, setEditionStatus] = useState(activeEdition?.status || 'planning');
+  const [festivalStatus, setFestivalStatus] = useState<string>(festival?.status || 'draft');
+  const [editionStatus, setEditionStatus] = useState<string>(activeEdition?.status || 'planning');
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 

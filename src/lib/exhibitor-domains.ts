@@ -1,5 +1,5 @@
-/** Predefined exhibitor domain choices. */
-export const EXHIBITOR_DOMAINS = [
+/** Predefined exhibitor domain choices. Stored under `value`; UI shows `label`. */
+const DOMAIN_LABELS = [
   'Auteur',
   'Illustrateur',
   'Artisan',
@@ -32,4 +32,13 @@ export const EXHIBITOR_DOMAINS = [
   'Autre',
 ] as const;
 
-export type ExhibitorDomain = (typeof EXHIBITOR_DOMAINS)[number];
+export type ExhibitorDomain = (typeof DOMAIN_LABELS)[number];
+
+export interface ExhibitorDomainOption {
+  value: ExhibitorDomain;
+  label: ExhibitorDomain;
+}
+
+export const EXHIBITOR_DOMAINS: readonly ExhibitorDomainOption[] = DOMAIN_LABELS.map(
+  (label) => ({ value: label, label }),
+);
