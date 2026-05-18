@@ -1,258 +1,170 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, type RouteObject } from 'react-router-dom';
 
-// Layouts
+// Layouts stay eager — they wrap every page, are small, and rendering an empty
+// shell while the route's lazy chunk loads is fine. The page components below
+// are lazy-imported so the initial bundle only contains the entry point.
 import { PlatformLayout } from '@/layouts/PlatformLayout';
 import { FestivalPublicLayout } from '@/layouts/FestivalPublicLayout';
 import { FestivalAdminLayout } from '@/layouts/FestivalAdminLayout';
 import { AuthLayout } from '@/layouts/AuthLayout';
-
-// Platform pages
-import { HomePage } from '@/pages/platform/HomePage';
-import { DirectoryPage } from '@/pages/platform/DirectoryPage';
-import { DashboardPage } from '@/pages/platform/DashboardPage';
-import { LoginPage } from '@/pages/platform/LoginPage';
-import { SignupPage } from '@/pages/platform/SignupPage';
-import { ForgotPasswordPage } from '@/pages/platform/ForgotPasswordPage';
-import { ResetPasswordPage } from '@/pages/platform/ResetPasswordPage';
-import { ProfilePage } from '@/pages/platform/ProfilePage';
-import { PrivacyPage } from '@/pages/platform/PrivacyPage';
-import { AboutPage } from '@/pages/platform/AboutPage';
-import { DocsPage } from '@/pages/platform/DocsPage';
-import { DocsVisitorPage } from '@/pages/platform/docs/DocsVisitorPage';
-import { DocsVolunteerPage } from '@/pages/platform/docs/DocsVolunteerPage';
-import { DocsExhibitorPage } from '@/pages/platform/docs/DocsExhibitorPage';
-import { DocsOrganizerPage } from '@/pages/platform/docs/DocsOrganizerPage';
-
-// Festival public pages
-import { FestivalHomePage } from '@/pages/festival/FestivalHomePage';
-import { FestivalSchedulePage } from '@/pages/festival/FestivalSchedulePage';
-import { FestivalMapPage } from '@/pages/festival/FestivalMapPage';
-import { FestivalExhibitorsPage } from '@/pages/festival/FestivalExhibitorsPage';
-import { FestivalApplyPage } from '@/pages/festival/FestivalApplyPage';
-import { CmsPublicPage } from '@/pages/festival/CmsPublicPage';
-
-// Festival admin pages
-import { AdminOverviewPage } from '@/pages/festival-admin/AdminOverviewPage';
-import { AdminCmsPage } from '@/pages/festival-admin/AdminCmsPage';
-import { AdminCmsEditorPage } from '@/pages/festival-admin/AdminCmsEditorPage';
-import { AdminProgrammingPage } from '@/pages/festival-admin/AdminProgrammingPage';
-import { AdminExhibitorsPage } from '@/pages/festival-admin/AdminExhibitorsPage';
-import { AdminVolunteersPage } from '@/pages/festival-admin/AdminVolunteersPage';
-import { AdminBudgetPage } from '@/pages/festival-admin/AdminBudgetPage';
-import { AdminEquipmentPage } from '@/pages/festival-admin/AdminEquipmentPage';
-import { AdminFloorPlanEditorPage } from '@/pages/festival-admin/AdminFloorPlanEditorPage';
-import { AdminSettingsPage } from '@/pages/festival-admin/AdminSettingsPage';
-import { AdminAgendaPage } from '@/pages/festival-admin/AdminAgendaPage';
-import { AdminTasksMeetingsPage } from '@/pages/festival-admin/AdminTasksMeetingsPage';
-import { AdminTicketsPage } from '@/pages/festival-admin/AdminTicketsPage';
-import { AdminTicketingPage } from '@/pages/festival-admin/AdminTicketingPage';
-import { AdminMarketplacePage } from '@/pages/festival-admin/AdminMarketplacePage';
-import { AdminSponsorsPage } from '@/pages/festival-admin/AdminSponsorsPage';
-import { AdminReservationsPage } from '@/pages/festival-admin/AdminReservationsPage';
-import { AdminGamificationPage } from '@/pages/festival-admin/AdminGamificationPage';
-import { AdminVotesPage } from '@/pages/festival-admin/AdminVotesPage';
-import { AdminRafflesPage } from '@/pages/festival-admin/AdminRafflesPage';
-import { AdminArtistsPage } from '@/pages/festival-admin/AdminArtistsPage';
-import { AdminQueuesPage } from '@/pages/festival-admin/AdminQueuesPage';
-import { AdminAnalyticsPage } from '@/pages/festival-admin/AdminAnalyticsPage';
-import { AdminApiPage } from '@/pages/festival-admin/AdminApiPage';
-import { AdminQrObjectsPage } from '@/pages/festival-admin/AdminQrObjectsPage';
-import { AdminRolesPage } from '@/pages/festival-admin/AdminRolesPage';
-import { AdminSurveysPage } from '@/pages/festival-admin/AdminSurveysPage';
-import { AdminRegulationsPage } from '@/pages/festival-admin/AdminRegulationsPage';
-import { SurveyFillPage } from '@/pages/festival/SurveyFillPage';
-import { FestivalRegulationsPage } from '@/pages/festival/FestivalRegulationsPage';
-import { AdminMeetingEditorPage } from '@/pages/festival-admin/AdminMeetingEditorPage';
-import { AdminWorkspacePage } from '@/pages/festival-admin/AdminWorkspacePage';
-import { WorkspaceDocEditorPage } from '@/pages/festival-admin/WorkspaceDocEditorPage';
-import { WorkspaceSheetPage } from '@/pages/festival-admin/WorkspaceSheetPage';
-import { WorkspaceCalendarPage } from '@/pages/festival-admin/WorkspaceCalendarPage';
-import { WorkspaceKanbanPage } from '@/pages/festival-admin/WorkspaceKanbanPage';
-
-// New platform pages
-import { MessagingPage } from '@/pages/platform/MessagingPage';
-import { ExhibitorDashboardPage } from '@/pages/platform/ExhibitorDashboardPage';
-import { ExhibitorCmsEditorPage } from '@/pages/platform/ExhibitorCmsEditorPage';
-import { ExhibitorDirectoryPage } from '@/pages/platform/ExhibitorDirectoryPage';
-import { PosTerminalPage } from '@/pages/platform/PosTerminalPage';
-import { PosProductsPage } from '@/pages/platform/PosProductsPage';
-import { PosAccountingPage } from '@/pages/platform/PosAccountingPage';
-import { VisitorDashboardPage } from '@/pages/platform/VisitorDashboardPage';
-import { QrScannerPage } from '@/pages/platform/QrScannerPage';
-import { PricingPage } from '@/pages/platform/PricingPage';
-import { SubscriptionPage } from '@/pages/platform/SubscriptionPage';
-import { BillingPage } from '@/pages/platform/BillingPage';
-import { VolunteerDashboardPage } from '@/pages/platform/VolunteerDashboardPage';
-import { OrganizerDashboardPage } from '@/pages/platform/OrganizerDashboardPage';
-
-// Invite join page
-import { JoinInvitePage } from '@/pages/platform/JoinInvitePage';
-
-// Public exhibitor (vitrine + boutique)
-import { ExhibitorPublicLayout } from '@/layouts/ExhibitorPublicLayout';
-import { ExhibitorVitrinePage } from '@/pages/exhibitor-public/ExhibitorVitrinePage';
-import { ExhibitorBoutiquePage } from '@/pages/exhibitor-public/ExhibitorBoutiquePage';
-import { ExhibitorProductPage } from '@/pages/exhibitor-public/ExhibitorProductPage';
-import { ExhibitorCheckoutPage } from '@/pages/exhibitor-public/ExhibitorCheckoutPage';
-import { OrderConfirmationPage } from '@/pages/exhibitor-public/OrderConfirmationPage';
-
-// Platform admin pages
 import { PlatformAdminLayout } from '@/layouts/PlatformAdminLayout';
-import { PlatformAdminDashboard } from '@/pages/admin/PlatformAdminDashboard';
-import { PlatformAdminUsers } from '@/pages/admin/PlatformAdminUsers';
-import { PlatformAdminFestivals } from '@/pages/admin/PlatformAdminFestivals';
-import { PlatformAdminTickets } from '@/pages/admin/PlatformAdminTickets';
-import { PlatformAdminBilling } from '@/pages/admin/PlatformAdminBilling';
-
-// Not Found
+import { ExhibitorPublicLayout } from '@/layouts/ExhibitorPublicLayout';
 import { NotFoundPage } from '@/pages/platform/NotFoundPage';
 
 /**
- * Single unified router.
- * Platform pages live at root paths.
- * Festival pages live under /f/:slug/...
+ * Helper: turn a dynamic `import('@/...')` + a named export into the shape
+ * React Router v7's `lazy` property expects (`{ Component }` or `{ Element }`).
+ *
+ * Usage: `lazy(() => import('@/pages/...'), m => m.HomePage)`.
+ *
+ * Why not React.lazy? The router's own `lazy` route property integrates with
+ * loaders + actions and doesn't require a wrapping `<Suspense>` — simpler.
  */
+function lazy<M extends Record<string, unknown>>(
+  loader: () => Promise<M>,
+  pick: (m: M) => unknown,
+): RouteObject['lazy'] {
+  return async () => ({ Component: pick(await loader()) as React.ComponentType });
+}
+
 export const router = createBrowserRouter([
-  // Auth routes
+  // ─── Auth routes ────────────────────────────────────────────────────────
   {
     element: <AuthLayout />,
     children: [
-      { path: '/login', element: <LoginPage /> },
-      { path: '/signup', element: <SignupPage /> },
-      { path: '/forgot-password', element: <ForgotPasswordPage /> },
-      { path: '/reset-password/:token', element: <ResetPasswordPage /> },
+      { path: '/login', lazy: lazy(() => import('@/pages/platform/LoginPage'), (m) => m.LoginPage) },
+      { path: '/signup', lazy: lazy(() => import('@/pages/platform/SignupPage'), (m) => m.SignupPage) },
+      { path: '/forgot-password', lazy: lazy(() => import('@/pages/platform/ForgotPasswordPage'), (m) => m.ForgotPasswordPage) },
+      { path: '/reset-password/:token', lazy: lazy(() => import('@/pages/platform/ResetPasswordPage'), (m) => m.ResetPasswordPage) },
     ],
   },
 
-  // Main platform routes
+  // ─── Main platform routes ──────────────────────────────────────────────
   {
     element: <PlatformLayout />,
     children: [
-      { path: '/', element: <HomePage /> },
-      { path: '/directory', element: <DirectoryPage /> },
-      { path: '/dashboard', element: <DashboardPage /> },
-      { path: '/profile', element: <ProfilePage /> },
-      { path: '/messaging', element: <MessagingPage /> },
-      { path: '/exhibitor', element: <ExhibitorDashboardPage /> },
-      { path: '/exhibitor/cms/:pageId', element: <ExhibitorCmsEditorPage /> },
-      { path: '/exhibitors', element: <ExhibitorDirectoryPage /> },
-      { path: '/pos', element: <PosTerminalPage /> },
-      { path: '/pos/products', element: <PosProductsPage /> },
-      { path: '/pos/accounting', element: <PosAccountingPage /> },
-      { path: '/visitor', element: <VisitorDashboardPage /> },
-      { path: '/scan', element: <QrScannerPage /> },
-      { path: '/pricing', element: <PricingPage /> },
-      { path: '/subscription', element: <SubscriptionPage /> },
-      { path: '/billing', element: <BillingPage /> },
-      { path: '/volunteer', element: <VolunteerDashboardPage /> },
-      { path: '/organizer', element: <OrganizerDashboardPage /> },
-      { path: '/privacy', element: <PrivacyPage /> },
-      { path: '/about', element: <AboutPage /> },
-      { path: '/docs', element: <DocsPage /> },
-      { path: '/docs/visitor', element: <DocsVisitorPage /> },
-      { path: '/docs/volunteer', element: <DocsVolunteerPage /> },
-      { path: '/docs/exhibitor', element: <DocsExhibitorPage /> },
-      { path: '/docs/organizer', element: <DocsOrganizerPage /> },
+      { path: '/', lazy: lazy(() => import('@/pages/platform/HomePage'), (m) => m.HomePage) },
+      { path: '/directory', lazy: lazy(() => import('@/pages/platform/DirectoryPage'), (m) => m.DirectoryPage) },
+      { path: '/dashboard', lazy: lazy(() => import('@/pages/platform/DashboardPage'), (m) => m.DashboardPage) },
+      { path: '/profile', lazy: lazy(() => import('@/pages/platform/ProfilePage'), (m) => m.ProfilePage) },
+      { path: '/messaging', lazy: lazy(() => import('@/pages/platform/MessagingPage'), (m) => m.MessagingPage) },
+      { path: '/exhibitor', lazy: lazy(() => import('@/pages/platform/ExhibitorDashboardPage'), (m) => m.ExhibitorDashboardPage) },
+      { path: '/exhibitor/cms/:pageId', lazy: lazy(() => import('@/pages/platform/ExhibitorCmsEditorPage'), (m) => m.ExhibitorCmsEditorPage) },
+      { path: '/exhibitors', lazy: lazy(() => import('@/pages/platform/ExhibitorDirectoryPage'), (m) => m.ExhibitorDirectoryPage) },
+      { path: '/pos', lazy: lazy(() => import('@/pages/platform/PosTerminalPage'), (m) => m.PosTerminalPage) },
+      { path: '/pos/products', lazy: lazy(() => import('@/pages/platform/PosProductsPage'), (m) => m.PosProductsPage) },
+      { path: '/pos/accounting', lazy: lazy(() => import('@/pages/platform/PosAccountingPage'), (m) => m.PosAccountingPage) },
+      { path: '/visitor', lazy: lazy(() => import('@/pages/platform/VisitorDashboardPage'), (m) => m.VisitorDashboardPage) },
+      { path: '/scan', lazy: lazy(() => import('@/pages/platform/QrScannerPage'), (m) => m.QrScannerPage) },
+      { path: '/pricing', lazy: lazy(() => import('@/pages/platform/PricingPage'), (m) => m.PricingPage) },
+      { path: '/subscription', lazy: lazy(() => import('@/pages/platform/SubscriptionPage'), (m) => m.SubscriptionPage) },
+      { path: '/billing', lazy: lazy(() => import('@/pages/platform/BillingPage'), (m) => m.BillingPage) },
+      { path: '/volunteer', lazy: lazy(() => import('@/pages/platform/VolunteerDashboardPage'), (m) => m.VolunteerDashboardPage) },
+      { path: '/organizer', lazy: lazy(() => import('@/pages/platform/OrganizerDashboardPage'), (m) => m.OrganizerDashboardPage) },
+      { path: '/privacy', lazy: lazy(() => import('@/pages/platform/PrivacyPage'), (m) => m.PrivacyPage) },
+      { path: '/about', lazy: lazy(() => import('@/pages/platform/AboutPage'), (m) => m.AboutPage) },
+      { path: '/docs', lazy: lazy(() => import('@/pages/platform/DocsPage'), (m) => m.DocsPage) },
+      { path: '/docs/visitor', lazy: lazy(() => import('@/pages/platform/docs/DocsVisitorPage'), (m) => m.DocsVisitorPage) },
+      { path: '/docs/volunteer', lazy: lazy(() => import('@/pages/platform/docs/DocsVolunteerPage'), (m) => m.DocsVolunteerPage) },
+      { path: '/docs/exhibitor', lazy: lazy(() => import('@/pages/platform/docs/DocsExhibitorPage'), (m) => m.DocsExhibitorPage) },
+      { path: '/docs/organizer', lazy: lazy(() => import('@/pages/platform/docs/DocsOrganizerPage'), (m) => m.DocsOrganizerPage) },
     ],
   },
 
-  // Order confirmation (standalone, no exhibitor context)
+  // ─── Order confirmation (standalone) ───────────────────────────────────
   {
     element: <PlatformLayout />,
     children: [
-      { path: '/order/:orderNumber', element: <OrderConfirmationPage /> },
+      { path: '/order/:orderNumber', lazy: lazy(() => import('@/pages/exhibitor-public/OrderConfirmationPage'), (m) => m.OrderConfirmationPage) },
     ],
   },
 
-  // Public exhibitor (vitrine + boutique)
+  // ─── Public exhibitor (vitrine + boutique) ─────────────────────────────
   {
     path: '/e/:slug',
     element: <ExhibitorPublicLayout />,
     children: [
-      { index: true, element: <ExhibitorVitrinePage /> },
-      { path: 'boutique', element: <ExhibitorBoutiquePage /> },
-      { path: 'p/:productSlug', element: <ExhibitorProductPage /> },
-      { path: 'checkout', element: <ExhibitorCheckoutPage /> },
+      { index: true, lazy: lazy(() => import('@/pages/exhibitor-public/ExhibitorVitrinePage'), (m) => m.ExhibitorVitrinePage) },
+      { path: 'boutique', lazy: lazy(() => import('@/pages/exhibitor-public/ExhibitorBoutiquePage'), (m) => m.ExhibitorBoutiquePage) },
+      { path: 'p/:productSlug', lazy: lazy(() => import('@/pages/exhibitor-public/ExhibitorProductPage'), (m) => m.ExhibitorProductPage) },
+      { path: 'checkout', lazy: lazy(() => import('@/pages/exhibitor-public/ExhibitorCheckoutPage'), (m) => m.ExhibitorCheckoutPage) },
     ],
   },
 
-  // Festival public routes
+  // ─── Festival public routes ────────────────────────────────────────────
   {
     path: '/f/:slug',
     element: <FestivalPublicLayout />,
     children: [
-      { index: true, element: <FestivalHomePage /> },
-      { path: 'schedule', element: <FestivalSchedulePage /> },
-      { path: 'map', element: <FestivalMapPage /> },
-      { path: 'exhibitors', element: <FestivalExhibitorsPage /> },
-      { path: 'apply', element: <FestivalApplyPage /> },
-      // CMS pages catch-all (must be last)
-      { path: 'p/:pageSlug', element: <CmsPublicPage /> },
-      { path: 'survey/:surveyId', element: <SurveyFillPage /> },
-      { path: 'regulations', element: <FestivalRegulationsPage /> },
+      { index: true, lazy: lazy(() => import('@/pages/festival/FestivalHomePage'), (m) => m.FestivalHomePage) },
+      { path: 'schedule', lazy: lazy(() => import('@/pages/festival/FestivalSchedulePage'), (m) => m.FestivalSchedulePage) },
+      { path: 'map', lazy: lazy(() => import('@/pages/festival/FestivalMapPage'), (m) => m.FestivalMapPage) },
+      { path: 'exhibitors', lazy: lazy(() => import('@/pages/festival/FestivalExhibitorsPage'), (m) => m.FestivalExhibitorsPage) },
+      { path: 'apply', lazy: lazy(() => import('@/pages/festival/FestivalApplyPage'), (m) => m.FestivalApplyPage) },
+      { path: 'p/:pageSlug', lazy: lazy(() => import('@/pages/festival/CmsPublicPage'), (m) => m.CmsPublicPage) },
+      { path: 'survey/:surveyId', lazy: lazy(() => import('@/pages/festival/SurveyFillPage'), (m) => m.SurveyFillPage) },
+      { path: 'regulations', lazy: lazy(() => import('@/pages/festival/FestivalRegulationsPage'), (m) => m.FestivalRegulationsPage) },
     ],
   },
 
-  // Festival admin routes
+  // ─── Festival admin routes ─────────────────────────────────────────────
   {
     path: '/f/:slug/admin',
     element: <FestivalAdminLayout />,
     children: [
-      { index: true, element: <AdminOverviewPage /> },
-      { path: 'cms', element: <AdminCmsPage /> },
-      { path: 'cms/pages/:pageId', element: <AdminCmsEditorPage /> },
-      { path: 'programming', element: <AdminProgrammingPage /> },
-      { path: 'exhibitors', element: <AdminExhibitorsPage /> },
-      { path: 'volunteers', element: <AdminVolunteersPage /> },
-      { path: 'budget', element: <AdminBudgetPage /> },
-      { path: 'equipment', element: <AdminEquipmentPage /> },
-      { path: 'agenda', element: <AdminAgendaPage /> },
-      { path: 'tasks', element: <AdminTasksMeetingsPage /> },
-      { path: 'floor-plan', element: <AdminFloorPlanEditorPage /> },
-      { path: 'tickets', element: <AdminTicketsPage /> },
-      { path: 'ticketing', element: <AdminTicketingPage /> },
-      { path: 'marketplace', element: <AdminMarketplacePage /> },
-      { path: 'sponsors', element: <AdminSponsorsPage /> },
-      { path: 'reservations', element: <AdminReservationsPage /> },
-      { path: 'gamification', element: <AdminGamificationPage /> },
-      { path: 'votes', element: <AdminVotesPage /> },
-      { path: 'raffles', element: <AdminRafflesPage /> },
-      { path: 'artists', element: <AdminArtistsPage /> },
-      { path: 'queues', element: <AdminQueuesPage /> },
-      { path: 'analytics', element: <AdminAnalyticsPage /> },
-      { path: 'api', element: <AdminApiPage /> },
-      { path: 'qr-objects', element: <AdminQrObjectsPage /> },
-      { path: 'roles', element: <AdminRolesPage /> },
-      { path: 'surveys', element: <AdminSurveysPage /> },
-      { path: 'regulations', element: <AdminRegulationsPage /> },
-      { path: 'meetings/:meetingId', element: <AdminMeetingEditorPage /> },
-      { path: 'workspace', element: <AdminWorkspacePage /> },
-      { path: 'workspace/docs/:docId', element: <WorkspaceDocEditorPage /> },
-      { path: 'workspace/sheets/:sheetId', element: <WorkspaceSheetPage /> },
-      { path: 'workspace/calendar', element: <WorkspaceCalendarPage /> },
-      { path: 'workspace/tasks/:boardId', element: <WorkspaceKanbanPage /> },
-      { path: 'settings', element: <AdminSettingsPage /> },
-      { path: 'settings/theme', element: <AdminSettingsPage /> },
-      { path: 'settings/communication', element: <AdminSettingsPage /> },
+      { index: true, lazy: lazy(() => import('@/pages/festival-admin/AdminOverviewPage'), (m) => m.AdminOverviewPage) },
+      { path: 'cms', lazy: lazy(() => import('@/pages/festival-admin/AdminCmsPage'), (m) => m.AdminCmsPage) },
+      { path: 'cms/pages/:pageId', lazy: lazy(() => import('@/pages/festival-admin/AdminCmsEditorPage'), (m) => m.AdminCmsEditorPage) },
+      { path: 'programming', lazy: lazy(() => import('@/pages/festival-admin/AdminProgrammingPage'), (m) => m.AdminProgrammingPage) },
+      { path: 'exhibitors', lazy: lazy(() => import('@/pages/festival-admin/AdminExhibitorsPage'), (m) => m.AdminExhibitorsPage) },
+      { path: 'volunteers', lazy: lazy(() => import('@/pages/festival-admin/AdminVolunteersPage'), (m) => m.AdminVolunteersPage) },
+      { path: 'budget', lazy: lazy(() => import('@/pages/festival-admin/AdminBudgetPage'), (m) => m.AdminBudgetPage) },
+      { path: 'equipment', lazy: lazy(() => import('@/pages/festival-admin/AdminEquipmentPage'), (m) => m.AdminEquipmentPage) },
+      { path: 'agenda', lazy: lazy(() => import('@/pages/festival-admin/AdminAgendaPage'), (m) => m.AdminAgendaPage) },
+      { path: 'tasks', lazy: lazy(() => import('@/pages/festival-admin/AdminTasksMeetingsPage'), (m) => m.AdminTasksMeetingsPage) },
+      { path: 'floor-plan', lazy: lazy(() => import('@/pages/festival-admin/AdminFloorPlanEditorPage'), (m) => m.AdminFloorPlanEditorPage) },
+      { path: 'tickets', lazy: lazy(() => import('@/pages/festival-admin/AdminTicketsPage'), (m) => m.AdminTicketsPage) },
+      { path: 'ticketing', lazy: lazy(() => import('@/pages/festival-admin/AdminTicketingPage'), (m) => m.AdminTicketingPage) },
+      { path: 'marketplace', lazy: lazy(() => import('@/pages/festival-admin/AdminMarketplacePage'), (m) => m.AdminMarketplacePage) },
+      { path: 'sponsors', lazy: lazy(() => import('@/pages/festival-admin/AdminSponsorsPage'), (m) => m.AdminSponsorsPage) },
+      { path: 'reservations', lazy: lazy(() => import('@/pages/festival-admin/AdminReservationsPage'), (m) => m.AdminReservationsPage) },
+      { path: 'gamification', lazy: lazy(() => import('@/pages/festival-admin/AdminGamificationPage'), (m) => m.AdminGamificationPage) },
+      { path: 'votes', lazy: lazy(() => import('@/pages/festival-admin/AdminVotesPage'), (m) => m.AdminVotesPage) },
+      { path: 'raffles', lazy: lazy(() => import('@/pages/festival-admin/AdminRafflesPage'), (m) => m.AdminRafflesPage) },
+      { path: 'artists', lazy: lazy(() => import('@/pages/festival-admin/AdminArtistsPage'), (m) => m.AdminArtistsPage) },
+      { path: 'queues', lazy: lazy(() => import('@/pages/festival-admin/AdminQueuesPage'), (m) => m.AdminQueuesPage) },
+      { path: 'analytics', lazy: lazy(() => import('@/pages/festival-admin/AdminAnalyticsPage'), (m) => m.AdminAnalyticsPage) },
+      { path: 'api', lazy: lazy(() => import('@/pages/festival-admin/AdminApiPage'), (m) => m.AdminApiPage) },
+      { path: 'qr-objects', lazy: lazy(() => import('@/pages/festival-admin/AdminQrObjectsPage'), (m) => m.AdminQrObjectsPage) },
+      { path: 'roles', lazy: lazy(() => import('@/pages/festival-admin/AdminRolesPage'), (m) => m.AdminRolesPage) },
+      { path: 'surveys', lazy: lazy(() => import('@/pages/festival-admin/AdminSurveysPage'), (m) => m.AdminSurveysPage) },
+      { path: 'regulations', lazy: lazy(() => import('@/pages/festival-admin/AdminRegulationsPage'), (m) => m.AdminRegulationsPage) },
+      { path: 'meetings/:meetingId', lazy: lazy(() => import('@/pages/festival-admin/AdminMeetingEditorPage'), (m) => m.AdminMeetingEditorPage) },
+      { path: 'workspace', lazy: lazy(() => import('@/pages/festival-admin/AdminWorkspacePage'), (m) => m.AdminWorkspacePage) },
+      { path: 'workspace/docs/:docId', lazy: lazy(() => import('@/pages/festival-admin/WorkspaceDocEditorPage'), (m) => m.WorkspaceDocEditorPage) },
+      { path: 'workspace/sheets/:sheetId', lazy: lazy(() => import('@/pages/festival-admin/WorkspaceSheetPage'), (m) => m.WorkspaceSheetPage) },
+      { path: 'workspace/calendar', lazy: lazy(() => import('@/pages/festival-admin/WorkspaceCalendarPage'), (m) => m.WorkspaceCalendarPage) },
+      { path: 'workspace/tasks/:boardId', lazy: lazy(() => import('@/pages/festival-admin/WorkspaceKanbanPage'), (m) => m.WorkspaceKanbanPage) },
+      { path: 'settings', lazy: lazy(() => import('@/pages/festival-admin/AdminSettingsPage'), (m) => m.AdminSettingsPage) },
+      { path: 'settings/theme', lazy: lazy(() => import('@/pages/festival-admin/AdminSettingsPage'), (m) => m.AdminSettingsPage) },
+      { path: 'settings/communication', lazy: lazy(() => import('@/pages/festival-admin/AdminSettingsPage'), (m) => m.AdminSettingsPage) },
     ],
   },
 
-  // Platform admin routes
+  // ─── Platform admin routes ─────────────────────────────────────────────
   {
     path: '/admin',
     element: <PlatformAdminLayout />,
     children: [
-      { index: true, element: <PlatformAdminDashboard /> },
-      { path: 'users', element: <PlatformAdminUsers /> },
-      { path: 'festivals', element: <PlatformAdminFestivals /> },
-      { path: 'tickets', element: <PlatformAdminTickets /> },
-      { path: 'billing', element: <PlatformAdminBilling /> },
+      { index: true, lazy: lazy(() => import('@/pages/admin/PlatformAdminDashboard'), (m) => m.PlatformAdminDashboard) },
+      { path: 'users', lazy: lazy(() => import('@/pages/admin/PlatformAdminUsers'), (m) => m.PlatformAdminUsers) },
+      { path: 'festivals', lazy: lazy(() => import('@/pages/admin/PlatformAdminFestivals'), (m) => m.PlatformAdminFestivals) },
+      { path: 'tickets', lazy: lazy(() => import('@/pages/admin/PlatformAdminTickets'), (m) => m.PlatformAdminTickets) },
+      { path: 'billing', lazy: lazy(() => import('@/pages/admin/PlatformAdminBilling'), (m) => m.PlatformAdminBilling) },
     ],
   },
 
-  // Invite join
-  { path: '/join/:token', element: <JoinInvitePage /> },
-
-  // 404
+  // ─── Misc ──────────────────────────────────────────────────────────────
+  { path: '/join/:token', lazy: lazy(() => import('@/pages/platform/JoinInvitePage'), (m) => m.JoinInvitePage) },
   { path: '*', element: <NotFoundPage /> },
 ]);

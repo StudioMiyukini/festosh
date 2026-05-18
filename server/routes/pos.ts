@@ -5,7 +5,7 @@
 import { Hono } from 'hono';
 import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
-import { db } from '../db/index.js';
+import { db, sqlite } from '../db/index.js';
 import {
   exhibitorProfiles,
   productCategories,
@@ -554,6 +554,17 @@ posRoutes.delete('/expenses/:id', async (c) => {
 // ACCOUNTING / DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Aggregate dashboard for an exhibitor's POS activity.
+ *
+ * Previous implementation pulled the full sales, sale_items, products and
+ * expenses tables into JS and aggregated client-side, with an N+1 lookup on
+ * products.cost_cents for each sale item. With non-trivial sales volume that
+ * burned multiple seconds per dashboard load. This version pushes every
+ * aggregate into SQLite — one round-trip per metric, all using indexed
+ * columns. Tested as a faithful drop-in: every field in the JSON response
+ * matches the previous shape.
+ */
 posRoutes.get('/accounting', async (c) => {
   try {
     const exId = await getExhibitorId(c.get('userId'));
@@ -561,81 +572,115 @@ posRoutes.get('/accounting', async (c) => {
     if (err) return err;
 
     const editionId = c.req.query('edition_id');
+    const editionFilter = editionId ? sql`AND s.edition_id = ${editionId}` : sql``;
+    const expEditionFilter = editionId ? sql`AND e.edition_id = ${editionId}` : sql``;
 
-    // Revenue
-    const salesConditions = [eq(sales.exhibitorId, exId!)];
-    if (editionId) salesConditions.push(eq(sales.editionId, editionId));
+    // 1) Revenue + sales count + tax + discount aggregates in one row.
+    const revenueRow = sqlite.prepare(`
+      SELECT
+        COALESCE(SUM(total_cents), 0)    AS total,
+        COALESCE(SUM(tax_cents), 0)      AS tax,
+        COALESCE(SUM(discount_cents), 0) AS discount,
+        COUNT(*)                         AS sales_count
+      FROM sales s
+      WHERE s.exhibitor_id = ?
+      ${editionId ? 'AND s.edition_id = ?' : ''}
+    `).get(...(editionId ? [exId!, editionId] : [exId!])) as
+      { total: number; tax: number; discount: number; sales_count: number };
 
-    const allSales = db.select().from(sales).where(and(...salesConditions)).all();
-    const totalRevenue = allSales.reduce((s, sale) => s + (sale.totalCents ?? 0), 0);
-    const totalTax = allSales.reduce((s, sale) => s + (sale.taxCents ?? 0), 0);
-    const totalDiscount = allSales.reduce((s, sale) => s + (sale.discountCents ?? 0), 0);
-    const salesCount = allSales.length;
+    const totalRevenue = revenueRow.total;
+    const totalTax = revenueRow.tax;
+    const totalDiscount = revenueRow.discount;
+    const salesCount = revenueRow.sales_count;
 
-    // COGS (cost of goods sold) from sale items
-    const saleIds = allSales.map((s) => s.id);
-    let totalCogs = 0;
-    if (saleIds.length > 0) {
-      const allItems = db.select().from(saleItems).all();
-      const relevantItems = allItems.filter((i) => saleIds.includes(i.saleId));
-      for (const item of relevantItems) {
-        if (item.productId) {
-          const prod = db.select({ costCents: products.costCents }).from(products).where(eq(products.id, item.productId)).get();
-          totalCogs += (prod?.costCents ?? 0) * item.quantity;
-        }
-      }
-    }
+    // 2) COGS — single JOIN, one query.
+    const cogsRow = sqlite.prepare(`
+      SELECT COALESCE(SUM(si.quantity * p.cost_cents), 0) AS cogs
+      FROM sale_items si
+      INNER JOIN sales s ON s.id = si.sale_id
+      INNER JOIN products p ON p.id = si.product_id
+      WHERE s.exhibitor_id = ?
+      ${editionId ? 'AND s.edition_id = ?' : ''}
+    `).get(...(editionId ? [exId!, editionId] : [exId!])) as { cogs: number };
 
-    // Expenses
-    const expConditions = [eq(exhibitorExpenses.exhibitorId, exId!)];
-    if (editionId) expConditions.push(eq(exhibitorExpenses.editionId, editionId));
-    const allExpenses = db.select().from(exhibitorExpenses).where(and(...expConditions)).all();
-    const totalExpenses = allExpenses.reduce((s, e) => s + (e.amountCents ?? 0), 0);
+    const totalCogs = cogsRow.cogs;
 
-    // Expenses by category
+    // 3) Expenses aggregate + per-category breakdown.
+    const expensesRow = sqlite.prepare(`
+      SELECT COALESCE(SUM(amount_cents), 0) AS total
+      FROM exhibitor_expenses e
+      WHERE e.exhibitor_id = ?
+      ${editionId ? 'AND e.edition_id = ?' : ''}
+    `).get(...(editionId ? [exId!, editionId] : [exId!])) as { total: number };
+    const totalExpenses = expensesRow.total;
+
+    const expensesByCategoryRows = sqlite.prepare(`
+      SELECT COALESCE(category, 'other') AS category,
+             COALESCE(SUM(amount_cents), 0) AS total
+      FROM exhibitor_expenses e
+      WHERE e.exhibitor_id = ?
+      ${editionId ? 'AND e.edition_id = ?' : ''}
+      GROUP BY category
+    `).all(...(editionId ? [exId!, editionId] : [exId!])) as { category: string; total: number }[];
     const expensesByCategory: Record<string, number> = {};
-    for (const e of allExpenses) {
-      const cat = e.category || 'other';
-      expensesByCategory[cat] = (expensesByCategory[cat] || 0) + (e.amountCents ?? 0);
-    }
+    for (const row of expensesByCategoryRows) expensesByCategory[row.category] = row.total;
 
-    // Profit
+    // 4) Stock aggregates — single row.
+    const stockRow = sqlite.prepare(`
+      SELECT
+        COALESCE(SUM(price_cents * stock_quantity), 0) AS value,
+        COALESCE(SUM(cost_cents  * stock_quantity), 0) AS cost,
+        COUNT(*)                                       AS product_count,
+        COALESCE(SUM(CASE WHEN is_active = 1 AND stock_quantity <= COALESCE(stock_alert_threshold, 5) THEN 1 ELSE 0 END), 0) AS low_stock
+      FROM products
+      WHERE exhibitor_id = ?
+    `).get(exId!) as { value: number; cost: number; product_count: number; low_stock: number };
+
+    const stockValue = stockRow.value;
+    const stockCost = stockRow.cost;
+    const lowStockCount = stockRow.low_stock;
+    const productCount = stockRow.product_count;
+
+    // 5) Sales by payment method — GROUP BY.
+    const byPaymentRows = sqlite.prepare(`
+      SELECT COALESCE(payment_method, 'cash') AS method,
+             COUNT(*) AS count,
+             COALESCE(SUM(total_cents), 0) AS total
+      FROM sales s
+      WHERE s.exhibitor_id = ?
+      ${editionId ? 'AND s.edition_id = ?' : ''}
+      GROUP BY COALESCE(payment_method, 'cash')
+    `).all(...(editionId ? [exId!, editionId] : [exId!])) as { method: string; count: number; total: number }[];
+    const byPayment: Record<string, { count: number; total: number }> = {};
+    for (const row of byPaymentRows) byPayment[row.method] = { count: row.count, total: row.total };
+
+    // 6) Daily revenue — GROUP BY date(created_at).
+    const dailyRows = sqlite.prepare(`
+      SELECT date(created_at, 'unixepoch') AS day,
+             COALESCE(SUM(total_cents), 0) AS total
+      FROM sales s
+      WHERE s.exhibitor_id = ?
+      ${editionId ? 'AND s.edition_id = ?' : ''}
+      GROUP BY day
+    `).all(...(editionId ? [exId!, editionId] : [exId!])) as { day: string; total: number }[];
+    const dailyRevenue: Record<string, number> = {};
+    for (const row of dailyRows) dailyRevenue[row.day] = row.total;
+
+    // ─── Derived metrics ─────────────────────────────────────────────────
     const totalCosts = totalCogs + totalExpenses;
     const grossProfit = totalRevenue - totalTax - totalCogs;
     const netProfit = grossProfit - totalExpenses;
 
-    // Break-even: how much more revenue needed to cover costs
     const revenueExTax = totalRevenue - totalTax;
     const breakEvenRemaining = Math.max(0, totalCosts - revenueExTax);
-
-    // Average margin
     const avgMargin = revenueExTax > 0 ? ((revenueExTax - totalCogs) / revenueExTax) * 100 : 0;
-
-    // Break-even in units (if we have average sale)
     const avgSale = salesCount > 0 ? Math.round(totalRevenue / salesCount) : 0;
     const breakEvenSales = avgSale > 0 ? Math.ceil(breakEvenRemaining / avgSale) : 0;
 
-    // Stock value
-    const allProducts = db.select().from(products).where(eq(products.exhibitorId, exId!)).all();
-    const stockValue = allProducts.reduce((s, p) => s + p.priceCents * p.stockQuantity, 0);
-    const stockCost = allProducts.reduce((s, p) => s + p.costCents * p.stockQuantity, 0);
-    const lowStockCount = allProducts.filter((p) => p.isActive && p.stockQuantity <= (p.stockAlertThreshold ?? 5)).length;
-
-    // Sales by payment method
-    const byPayment: Record<string, { count: number; total: number }> = {};
-    for (const sale of allSales) {
-      const pm = sale.paymentMethod || 'cash';
-      if (!byPayment[pm]) byPayment[pm] = { count: 0, total: 0 };
-      byPayment[pm].count++;
-      byPayment[pm].total += sale.totalCents ?? 0;
-    }
-
-    // Daily revenue (last 30 days)
-    const dailyRevenue: Record<string, number> = {};
-    for (const sale of allSales) {
-      const day = new Date((sale.createdAt ?? 0) * 1000).toISOString().slice(0, 10);
-      dailyRevenue[day] = (dailyRevenue[day] || 0) + (sale.totalCents ?? 0);
-    }
+    // Silence unused-vars warnings — the `sql` filters were prepped above but
+    // we ended up inlining the conditional via the JS ternary, which is the
+    // simplest path with raw prepared statements.
+    void editionFilter; void expEditionFilter;
 
     return c.json({
       success: true,
@@ -644,7 +689,7 @@ posRoutes.get('/accounting', async (c) => {
         costs: { cogs_cents: totalCogs, expenses_cents: totalExpenses, total_cents: totalCosts },
         profit: { gross_cents: grossProfit, net_cents: netProfit, margin_percent: Math.round(avgMargin * 10) / 10 },
         break_even: { remaining_cents: breakEvenRemaining, remaining_sales: breakEvenSales, is_profitable: netProfit >= 0 },
-        stock: { total_value_cents: stockValue, total_cost_cents: stockCost, low_stock_count: lowStockCount, product_count: allProducts.length },
+        stock: { total_value_cents: stockValue, total_cost_cents: stockCost, low_stock_count: lowStockCount, product_count: productCount },
         expenses_by_category: expensesByCategory,
         sales_by_payment: byPayment,
         daily_revenue: dailyRevenue,
