@@ -61,6 +61,8 @@ interface BlockMetaItem {
 const BLOCK_META: Record<BlockType, BlockMetaItem> = {
   // Base
   hero: { label: 'Banniere', icon: Type, category: 'base' },
+  heading: { label: 'Titre', icon: Type, category: 'base' },
+  animated_heading: { label: 'Titre anime', icon: Type, category: 'base' },
   text: { label: 'Texte', icon: AlignLeft, category: 'base' },
   image: { label: 'Image', icon: ImageIcon, category: 'base' },
   gallery: { label: 'Galerie', icon: Images, category: 'base' },
@@ -71,15 +73,21 @@ const BLOCK_META: Record<BlockType, BlockMetaItem> = {
   icon_box: { label: 'Boites icones', icon: BoxSelect, category: 'mise_en_page' },
   cta: { label: 'Appel a l\'action', icon: Megaphone, category: 'mise_en_page' },
   tabs: { label: 'Onglets', icon: PanelTop, category: 'mise_en_page' },
+  accordion: { label: 'Accordeon', icon: PanelTop, category: 'mise_en_page' },
   separator: { label: 'Separateur', icon: Minus, category: 'mise_en_page' },
   spacer: { label: 'Espaceur', icon: MoveVertical, category: 'mise_en_page' },
   alert: { label: 'Alerte', icon: Bell, category: 'mise_en_page' },
+  flip_box: { label: 'Cartes retournables', icon: BoxSelect, category: 'mise_en_page' },
   // Contenu
   testimonial: { label: 'Temoignages', icon: Quote, category: 'contenu' },
+  blockquote: { label: 'Citation', icon: Quote, category: 'contenu' },
   team_member: { label: 'Equipe', icon: Users, category: 'contenu' },
   stats: { label: 'Chiffres cles', icon: BarChart3, category: 'contenu' },
+  progress: { label: 'Progression', icon: BarChart3, category: 'contenu' },
   pricing_table: { label: 'Tarifs', icon: CreditCard, category: 'contenu' },
+  price_list: { label: 'Liste de prix', icon: CreditCard, category: 'contenu' },
   logo_carousel: { label: 'Logos partenaires', icon: CircleDot, category: 'contenu' },
+  social_icons: { label: 'Reseaux sociaux', icon: CircleDot, category: 'contenu' },
   faq: { label: 'FAQ', icon: HelpCircle, category: 'contenu' },
   countdown: { label: 'Compte a rebours', icon: Clock, category: 'contenu' },
   // Dynamique
@@ -1377,8 +1385,50 @@ function ButtonForm({ content, onChange }: BlockFormProps) {
   );
 }
 
+/**
+ * Stub form used by Elementor Pro-style blocks added later. These blocks
+ * are primarily designed for the exhibitor vitrine editor; the festival CMS
+ * editor just shows a passthrough JSON view so festival admins can still
+ * edit them if needed.
+ */
+function JsonForm({ content, onChange }: BlockFormProps) {
+  const [text, setText] = useState(() => JSON.stringify(content, null, 2));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Re-sync only on block id changes (parent re-renders shouldn't clobber edits).
+    setText(JSON.stringify(content, null, 2));
+    setError(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        Editez ce bloc en JSON. Pour une edition assistee, utilisez l'editeur exposant.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          try {
+            onChange(JSON.parse(e.target.value));
+            setError(null);
+          } catch (err) {
+            setError((err as Error).message);
+          }
+        }}
+        rows={12}
+        className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+      />
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
 const BLOCK_FORMS: Record<BlockType, React.ComponentType<BlockFormProps>> = {
   hero: HeroForm,
+  heading: JsonForm,
   text: TextForm,
   image: ImageForm,
   gallery: GalleryForm,
@@ -1401,8 +1451,15 @@ const BLOCK_FORMS: Record<BlockType, React.ComponentType<BlockFormProps>> = {
   spacer: SpacerForm,
   alert: AlertForm,
   tabs: TabsForm,
+  accordion: JsonForm,
   logo_carousel: LogoCarouselForm,
   button: ButtonForm,
+  animated_heading: JsonForm,
+  blockquote: JsonForm,
+  social_icons: JsonForm,
+  progress: JsonForm,
+  flip_box: JsonForm,
+  price_list: JsonForm,
 };
 
 // ---------------------------------------------------------------------------

@@ -70,6 +70,79 @@ export interface CmsBlock {
 }
 
 // ---------------------------------------------------------------------------
+// Universal block styling (lives in `settings.style` on every block)
+// ---------------------------------------------------------------------------
+
+/**
+ * Thematic styling applied uniformly to any block via `settings.style`.
+ * Mirrors what an Elementor section's "Style" tab exposes: backgrounds,
+ * spacing, borders, typography, alignment, animations.
+ *
+ * The renderer reads this shape via the StyledSection wrapper and converts
+ * it into inline styles + tailwind classes. All fields are optional —
+ * leaving them out preserves the block's default look.
+ */
+export interface BlockStyle {
+  // Background
+  background_type?: 'none' | 'color' | 'gradient' | 'image';
+  background_color?: string;
+  background_gradient_from?: string;
+  background_gradient_to?: string;
+  background_gradient_angle?: number; // degrees
+  background_image_url?: string;
+  background_image_size?: 'cover' | 'contain' | 'auto';
+  background_image_position?: 'center' | 'top' | 'bottom' | 'left' | 'right';
+  background_overlay_color?: string;
+  background_overlay_opacity?: number; // 0-1
+
+  // Text
+  text_color?: string;
+  heading_color?: string;
+  font_family?: string;
+  font_size_px?: number;
+  font_weight?: 'normal' | 'medium' | 'semibold' | 'bold';
+  text_align?: 'left' | 'center' | 'right' | 'justify';
+  line_height?: number;
+
+  // Spacing (px)
+  padding_top?: number;
+  padding_right?: number;
+  padding_bottom?: number;
+  padding_left?: number;
+  margin_top?: number;
+  margin_bottom?: number;
+
+  // Border + radius (px)
+  border_width?: number;
+  border_style?: 'solid' | 'dashed' | 'dotted' | 'double' | 'none';
+  border_color?: string;
+  border_radius?: number;
+
+  // Shadow
+  shadow?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+
+  // Layout
+  max_width_px?: number;
+  full_width?: boolean;
+
+  // Animation (CSS-based, no library)
+  animation?: 'none' | 'fade_in' | 'slide_up' | 'slide_down' | 'zoom_in';
+  animation_delay_ms?: number;
+
+  // Custom escape hatch — sanitised before injection.
+  custom_css_class?: string;
+}
+
+/**
+ * Common settings shape. Most blocks only set `style`, but some carry
+ * extra display flags (`column_count` etc.) that live in the same object.
+ */
+export interface BlockSettings {
+  style?: BlockStyle;
+  [key: string]: unknown;
+}
+
+// ---------------------------------------------------------------------------
 // Typed content payloads for each block type
 // ---------------------------------------------------------------------------
 
@@ -313,9 +386,102 @@ export interface ButtonBlockContent {
   open_new_tab?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Elementor Pro-style block content payloads
+// ---------------------------------------------------------------------------
+
+/** Big heading block — like Elementor "Heading" widget. */
+export interface HeadingBlockContent {
+  text: string;
+  subtitle?: string;
+  level?: 'h1' | 'h2' | 'h3' | 'h4';
+  align?: 'left' | 'center' | 'right';
+  highlight_word?: string; // optional word to highlight in primary color
+}
+
+/** Animated heading — text cycles through words with animation. */
+export interface AnimatedHeadingBlockContent {
+  before_text?: string;
+  rotating_words: string[];
+  after_text?: string;
+  animation?: 'typing' | 'fade' | 'slide';
+  speed_ms?: number;
+}
+
+/** Blockquote / pull quote. */
+export interface BlockquoteBlockContent {
+  quote: string;
+  author?: string;
+  author_role?: string;
+  style?: 'classic' | 'border' | 'background';
+}
+
+/** Social icons bar. */
+export interface SocialIconsBlockContent {
+  items: Array<{
+    platform: 'facebook' | 'instagram' | 'twitter' | 'youtube' | 'tiktok' | 'linkedin' | 'discord' | 'twitch' | 'github' | 'pinterest' | 'website' | 'email';
+    url: string;
+  }>;
+  size?: 'sm' | 'md' | 'lg';
+  shape?: 'square' | 'rounded' | 'circle';
+  style?: 'filled' | 'outline' | 'minimal';
+  align?: 'left' | 'center' | 'right';
+}
+
+/** Progress bars / circles. */
+export interface ProgressBlockContent {
+  items: Array<{
+    label: string;
+    value: number; // 0-100
+    color?: string;
+  }>;
+  display?: 'bar' | 'circle';
+  show_value?: boolean;
+}
+
+/** Accordion — sequential collapsible sections (vs Tabs which swap). */
+export interface AccordionBlockContent {
+  items: Array<{
+    title: string;
+    content: string; // HTML
+    icon?: string;
+  }>;
+  allow_multiple?: boolean;
+  default_open?: number; // index of item opened by default, -1 = none
+}
+
+/** Flip box — card that flips on hover/click to reveal more content. */
+export interface FlipBoxBlockContent {
+  items: Array<{
+    front_title: string;
+    front_subtitle?: string;
+    front_icon?: string;
+    front_image_url?: string;
+    back_title: string;
+    back_text: string;
+    back_button_label?: string;
+    back_button_url?: string;
+  }>;
+  columns?: number;
+  flip_direction?: 'horizontal' | 'vertical';
+  trigger?: 'hover' | 'click';
+}
+
+/** Price list — menu / services list with prices. */
+export interface PriceListBlockContent {
+  items: Array<{
+    title: string;
+    description?: string;
+    price: string;
+    image_url?: string;
+    link_url?: string;
+  }>;
+}
+
 /** Union of all typed block content payloads, keyed by block type. */
 export interface BlockContentMap {
   hero: HeroBlockContent;
+  heading: HeadingBlockContent;
   text: TextBlockContent;
   image: ImageBlockContent;
   gallery: GalleryBlockContent;
@@ -338,8 +504,15 @@ export interface BlockContentMap {
   spacer: SpacerBlockContent;
   alert: AlertBlockContent;
   tabs: TabsBlockContent;
+  accordion: AccordionBlockContent;
   logo_carousel: LogoCarouselBlockContent;
   button: ButtonBlockContent;
+  animated_heading: AnimatedHeadingBlockContent;
+  blockquote: BlockquoteBlockContent;
+  social_icons: SocialIconsBlockContent;
+  progress: ProgressBlockContent;
+  flip_box: FlipBoxBlockContent;
+  price_list: PriceListBlockContent;
 }
 
 /**

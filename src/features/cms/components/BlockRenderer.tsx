@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import {
   ChevronDown,
@@ -14,10 +14,21 @@ import {
   CheckCircle2,
   XCircle,
   X,
+  Quote,
+  Facebook,
+  Instagram,
+  Twitter,
+  Youtube,
+  Linkedin,
+  Github,
+  Globe,
+  Mail,
+  ArrowRight,
 } from 'lucide-react';
-import type { CmsBlock } from '@/types/cms';
+import type { CmsBlock, BlockSettings } from '@/types/cms';
 import type {
   HeroBlockContent,
+  HeadingBlockContent,
   TextBlockContent,
   ImageBlockContent,
   GalleryBlockContent,
@@ -38,33 +49,48 @@ import type {
   SpacerBlockContent,
   AlertBlockContent,
   TabsBlockContent,
+  AccordionBlockContent,
   LogoCarouselBlockContent,
   ButtonBlockContent,
+  AnimatedHeadingBlockContent,
+  BlockquoteBlockContent,
+  SocialIconsBlockContent,
+  ProgressBlockContent,
+  FlipBoxBlockContent,
+  PriceListBlockContent,
+  BlockStyle,
 } from '@/types/cms';
+import { StyledSection } from './StyledSection';
 
 // ---------------------------------------------------------------------------
 // Hero
 // ---------------------------------------------------------------------------
 
-function HeroBlock({ content }: { content: HeroBlockContent }) {
+function HeroBlock({ content, style }: { content: HeroBlockContent; style?: BlockStyle }) {
   const opacity = content.overlay_opacity ?? 0.5;
+  // The hero has its own background image semantics — if the universal style
+  // doesn't set a background, fall back to the legacy `content.background_image_url`.
+  const heroStyle: BlockStyle | undefined = style?.background_type
+    ? style
+    : content.background_image_url
+      ? {
+          ...style,
+          background_type: 'image' as const,
+          background_image_url: content.background_image_url,
+          background_overlay_color: '#000000',
+          background_overlay_opacity: opacity,
+        }
+      : style;
 
   return (
-    <section className="relative flex min-h-[400px] items-center justify-center overflow-hidden">
-      {content.background_image_url && (
-        <>
-          <img
-            src={content.background_image_url}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-          <div
-            className="absolute inset-0 bg-black"
-            style={{ opacity }}
-          />
-        </>
-      )}
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-20 text-center">
+    <StyledSection
+      style={heroStyle}
+      defaultPaddingY="py-20"
+      defaultPaddingX="px-4 sm:px-6 lg:px-8"
+      contain={false}
+      className="flex min-h-[400px] items-center justify-center overflow-hidden"
+    >
+      <div className="relative z-10 mx-auto max-w-3xl text-center">
         <h2
           className={`text-4xl font-bold tracking-tight sm:text-5xl ${
             content.background_image_url ? 'text-white' : 'text-foreground'
@@ -108,7 +134,7 @@ function HeroBlock({ content }: { content: HeroBlockContent }) {
           </div>
         )}
       </div>
-    </section>
+    </StyledSection>
   );
 }
 
@@ -116,17 +142,17 @@ function HeroBlock({ content }: { content: HeroBlockContent }) {
 // Text
 // ---------------------------------------------------------------------------
 
-function TextBlock({ content }: { content: TextBlockContent & { html?: string } }) {
+function TextBlock({ content, style }: { content: TextBlockContent & { html?: string }; style?: BlockStyle }) {
   // Editors historically wrote either `body` (festival CMS) or `html` (the
   // exhibitor CMS editor). Accept both so existing content keeps rendering.
   const raw = content.body || content.html || '';
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+    <StyledSection style={style} defaultPaddingY="py-12">
       <div
-        className="prose prose-neutral max-w-none dark:prose-invert"
+        className="prose prose-neutral mx-auto max-w-3xl dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(raw) }}
       />
-    </section>
+    </StyledSection>
   );
 }
 
@@ -134,30 +160,34 @@ function TextBlock({ content }: { content: TextBlockContent & { html?: string } 
 // Image
 // ---------------------------------------------------------------------------
 
-function ImageBlock({ content }: { content: ImageBlockContent }) {
+function ImageBlock({ content, style }: { content: ImageBlockContent; style?: BlockStyle }) {
+  const radius = style?.border_radius != null ? `${style.border_radius}px` : undefined;
   const img = (
     <img
       src={content.image_url}
       alt={content.alt_text ?? ''}
-      className="h-auto w-full rounded-lg"
+      className="h-auto w-full"
+      style={{ borderRadius: radius ?? '0.5rem' }}
     />
   );
 
   return (
-    <figure className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-      {content.link_url ? (
-        <a href={content.link_url} target="_blank" rel="noopener noreferrer">
-          {img}
-        </a>
-      ) : (
-        img
-      )}
-      {content.caption && (
-        <figcaption className="mt-3 text-center text-sm text-muted-foreground">
-          {content.caption}
-        </figcaption>
-      )}
-    </figure>
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <figure className="mx-auto max-w-4xl">
+        {content.link_url ? (
+          <a href={content.link_url} target="_blank" rel="noopener noreferrer">
+            {img}
+          </a>
+        ) : (
+          img
+        )}
+        {content.caption && (
+          <figcaption className="mt-3 text-center text-sm text-muted-foreground">
+            {content.caption}
+          </figcaption>
+        )}
+      </figure>
+    </StyledSection>
   );
 }
 
@@ -165,14 +195,15 @@ function ImageBlock({ content }: { content: ImageBlockContent }) {
 // Gallery
 // ---------------------------------------------------------------------------
 
-function GalleryBlock({ content }: { content: GalleryBlockContent }) {
+function GalleryBlock({ content, style }: { content: GalleryBlockContent; style?: BlockStyle }) {
   const images = content.images ?? [];
+  const radius = style?.border_radius != null ? `${style.border_radius}px` : undefined;
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 md:grid-cols-3">
         {images.map((image, index) => (
-          <figure key={index} className="overflow-hidden rounded-lg">
+          <figure key={index} className="overflow-hidden" style={{ borderRadius: radius ?? '0.5rem' }}>
             <img
               src={image.image_url}
               alt={image.alt_text ?? ''}
@@ -186,7 +217,7 @@ function GalleryBlock({ content }: { content: GalleryBlockContent }) {
           </figure>
         ))}
       </div>
-    </section>
+    </StyledSection>
   );
 }
 
@@ -411,7 +442,7 @@ function ContactFormBlock({ content }: { content: ContactFormBlockContent }) {
 // FAQ (accordion)
 // ---------------------------------------------------------------------------
 
-function FaqBlock({ content }: { content: FaqBlockContent }) {
+function FaqBlock({ content, style }: { content: FaqBlockContent; style?: BlockStyle }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const items = content.items ?? [];
 
@@ -420,8 +451,8 @@ function FaqBlock({ content }: { content: FaqBlockContent }) {
   };
 
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="divide-y divide-border rounded-lg border border-border">
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className="mx-auto max-w-3xl divide-y divide-border rounded-lg border border-border">
         {items.map((item, index) => (
           <div key={index}>
             <button
@@ -446,7 +477,7 @@ function FaqBlock({ content }: { content: FaqBlockContent }) {
           </div>
         ))}
       </div>
-    </section>
+    </StyledSection>
   );
 }
 
@@ -543,17 +574,19 @@ function CustomHtmlBlock({ content }: { content: CustomHtmlBlockContent }) {
 // Image + Text
 // ---------------------------------------------------------------------------
 
-function ImageTextBlock({ content }: { content: ImageTextBlockContent }) {
+function ImageTextBlock({ content, style }: { content: ImageTextBlockContent; style?: BlockStyle }) {
   const alignMap = { top: 'items-start', center: 'items-center', bottom: 'items-end' };
   const align = alignMap[content.vertical_align ?? 'center'];
   const imageFirst = (content.image_position ?? 'left') === 'left';
+  const radius = style?.border_radius != null ? `${style.border_radius}px` : '0.5rem';
 
   const imageEl = (
     <div className="w-full md:w-1/2">
       <img
         src={content.image_url}
         alt={content.alt_text ?? ''}
-        className="h-auto w-full rounded-lg"
+        className="h-auto w-full"
+        style={{ borderRadius: radius }}
       />
     </div>
   );
@@ -561,7 +594,9 @@ function ImageTextBlock({ content }: { content: ImageTextBlockContent }) {
   const textEl = (
     <div className="w-full md:w-1/2">
       {content.title && (
-        <h3 className="mb-3 text-2xl font-bold text-foreground">{content.title}</h3>
+        <h3 className="mb-3 text-2xl font-bold text-foreground" style={style?.heading_color ? { color: style.heading_color } : undefined}>
+          {content.title}
+        </h3>
       )}
       <div
         className="prose prose-neutral max-w-none dark:prose-invert"
@@ -571,21 +606,11 @@ function ImageTextBlock({ content }: { content: ImageTextBlockContent }) {
   );
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className={`flex flex-col gap-8 md:flex-row ${align}`}>
-        {imageFirst ? (
-          <>
-            {imageEl}
-            {textEl}
-          </>
-        ) : (
-          <>
-            {textEl}
-            {imageEl}
-          </>
-        )}
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className={`mx-auto flex max-w-5xl flex-col gap-8 md:flex-row ${align}`}>
+        {imageFirst ? <>{imageEl}{textEl}</> : <>{textEl}{imageEl}</>}
       </div>
-    </section>
+    </StyledSection>
   );
 }
 
@@ -593,16 +618,25 @@ function ImageTextBlock({ content }: { content: ImageTextBlockContent }) {
 // CTA
 // ---------------------------------------------------------------------------
 
-function CtaBlock({ content }: { content: CtaBlockContent }) {
+function CtaBlock({ content, style }: { content: CtaBlockContent; style?: BlockStyle }) {
+  // Legacy `content.background_color` / `content.text_color` still apply when
+  // the universal style hasn't been configured. Universal wins when present.
+  const effectiveStyle: BlockStyle = style?.background_type
+    ? style!
+    : {
+        ...(style ?? {}),
+        background_type: content.background_color ? 'color' as const : style?.background_type,
+        background_color: content.background_color,
+        text_color: style?.text_color ?? content.text_color,
+      };
+
   return (
-    <section
-      className="py-16"
-      style={{
-        backgroundColor: content.background_color || undefined,
-        color: content.text_color || undefined,
-      }}
+    <StyledSection
+      style={effectiveStyle}
+      defaultPaddingY="py-16"
+      contain={false}
     >
-      <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl text-center">
         <h3 className="text-3xl font-bold">{content.title}</h3>
         {content.subtitle && (
           <p className="mt-4 text-lg opacity-80">{content.subtitle}</p>
@@ -626,7 +660,7 @@ function CtaBlock({ content }: { content: CtaBlockContent }) {
           )}
         </div>
       </div>
-    </section>
+    </StyledSection>
   );
 }
 
@@ -634,12 +668,12 @@ function CtaBlock({ content }: { content: CtaBlockContent }) {
 // Testimonial
 // ---------------------------------------------------------------------------
 
-function TestimonialBlock({ content }: { content: TestimonialBlockContent }) {
+function TestimonialBlock({ content, style }: { content: TestimonialBlockContent; style?: BlockStyle }) {
   const items = content.items ?? [];
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3">
         {items.map((item, idx) => (
           <div
             key={idx}
@@ -680,7 +714,7 @@ function TestimonialBlock({ content }: { content: TestimonialBlockContent }) {
           </div>
         ))}
       </div>
-    </section>
+    </StyledSection>
   );
 }
 
@@ -836,12 +870,12 @@ function TeamMemberBlock({ content }: { content: TeamMemberBlockContent }) {
 // Stats / Key figures
 // ---------------------------------------------------------------------------
 
-function StatsBlock({ content }: { content: StatsBlockContent }) {
+function StatsBlock({ content, style }: { content: StatsBlockContent; style?: BlockStyle }) {
   const items = content.items ?? [];
 
   return (
-    <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 md:grid-cols-4">
         {items.map((item, idx) => (
           <div key={idx} className="text-center">
             <p className="text-3xl font-bold text-primary sm:text-4xl">
@@ -853,7 +887,7 @@ function StatsBlock({ content }: { content: StatsBlockContent }) {
           </div>
         ))}
       </div>
-    </section>
+    </StyledSection>
   );
 }
 
@@ -1032,6 +1066,404 @@ function ButtonBlock({ content }: { content: ButtonBlockContent }) {
 }
 
 // ---------------------------------------------------------------------------
+// Heading — flexible big heading, like Elementor "Heading" widget
+// ---------------------------------------------------------------------------
+
+function HeadingBlock({ content, style }: { content: HeadingBlockContent; style?: BlockStyle }) {
+  const level = content.level || 'h2';
+  const alignClass = content.align === 'left' ? 'text-left' : content.align === 'right' ? 'text-right' : 'text-center';
+  const sizeMap: Record<string, string> = {
+    h1: 'text-4xl sm:text-5xl lg:text-6xl',
+    h2: 'text-3xl sm:text-4xl lg:text-5xl',
+    h3: 'text-2xl sm:text-3xl',
+    h4: 'text-xl sm:text-2xl',
+  };
+
+  const renderText = () => {
+    if (!content.highlight_word) return content.text;
+    const parts = content.text.split(new RegExp(`(${content.highlight_word})`, 'gi'));
+    return parts.map((part, i) =>
+      part.toLowerCase() === content.highlight_word!.toLowerCase()
+        ? <span key={i} className="text-primary">{part}</span>
+        : part,
+    );
+  };
+
+  // React 19 removed the global JSX namespace; resolve the tag via a switch
+  // instead of a dynamic JSX element to keep TypeScript happy.
+  const headingProps = {
+    className: `font-bold tracking-tight text-foreground ${sizeMap[level]}`,
+    style: style?.heading_color ? { color: style.heading_color } : undefined,
+  };
+  const heading =
+    level === 'h1' ? <h1 {...headingProps}>{renderText()}</h1>
+    : level === 'h3' ? <h3 {...headingProps}>{renderText()}</h3>
+    : level === 'h4' ? <h4 {...headingProps}>{renderText()}</h4>
+    : <h2 {...headingProps}>{renderText()}</h2>;
+
+  return (
+    <StyledSection style={style} defaultPaddingY="py-8">
+      <div className={`${alignClass} mx-auto max-w-4xl`}>
+        {heading}
+        {content.subtitle && (
+          <p className="mt-3 text-base text-muted-foreground sm:text-lg">{content.subtitle}</p>
+        )}
+      </div>
+    </StyledSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Animated heading — cycles through rotating words
+// ---------------------------------------------------------------------------
+
+function AnimatedHeadingBlock({ content, style }: { content: AnimatedHeadingBlockContent; style?: BlockStyle }) {
+  const words = content.rotating_words?.length ? content.rotating_words : [''];
+  const speed = content.speed_ms ?? 2500;
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (words.length <= 1) return;
+    const id = setInterval(() => setIndex((i) => (i + 1) % words.length), speed);
+    return () => clearInterval(id);
+  }, [words.length, speed]);
+
+  const anim = content.animation ?? 'fade';
+  const animClass =
+    anim === 'typing' ? 'animate-fade-in border-r-2 border-primary pr-1' :
+    anim === 'slide' ? 'animate-slide-up' :
+    'animate-fade-in';
+
+  return (
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className="mx-auto max-w-4xl text-center">
+        <h2 className="flex flex-wrap items-center justify-center gap-x-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+          {content.before_text && <span>{content.before_text}</span>}
+          <span
+            key={words[index]}
+            className={`text-primary ${animClass}`}
+          >
+            {words[index]}
+          </span>
+          {content.after_text && <span>{content.after_text}</span>}
+        </h2>
+      </div>
+    </StyledSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Blockquote
+// ---------------------------------------------------------------------------
+
+function BlockquoteBlock({ content, style }: { content: BlockquoteBlockContent; style?: BlockStyle }) {
+  const variant = content.style || 'classic';
+  const variantClass =
+    variant === 'border' ? 'border-l-4 border-primary pl-6'
+    : variant === 'background' ? 'rounded-xl bg-primary/5 p-8'
+    : 'pl-6';
+
+  return (
+    <StyledSection style={style} defaultPaddingY="py-10">
+      <figure className={`mx-auto max-w-3xl ${variantClass}`}>
+        <Quote className="mb-3 h-8 w-8 text-primary/60" aria-hidden="true" />
+        <blockquote className="text-xl font-medium leading-relaxed text-foreground sm:text-2xl">
+          {content.quote}
+        </blockquote>
+        {(content.author || content.author_role) && (
+          <figcaption className="mt-4 text-sm text-muted-foreground">
+            {content.author && <span className="font-semibold text-foreground">{content.author}</span>}
+            {content.author && content.author_role && <span> — </span>}
+            {content.author_role && <span>{content.author_role}</span>}
+          </figcaption>
+        )}
+      </figure>
+    </StyledSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Social icons bar
+// ---------------------------------------------------------------------------
+
+const SOCIAL_ICONS: Record<string, typeof Facebook> = {
+  facebook: Facebook, instagram: Instagram, twitter: Twitter, youtube: Youtube,
+  linkedin: Linkedin, github: Github, website: Globe, email: Mail,
+  // Lucide doesn't ship TikTok/Discord/Twitch/Pinterest — fallback to Globe with brand color.
+  tiktok: Globe, discord: Globe, twitch: Globe, pinterest: Globe,
+};
+
+const SOCIAL_BRAND_COLORS: Record<string, string> = {
+  facebook: '#1877f2', instagram: '#e4405f', twitter: '#1da1f2', youtube: '#ff0000',
+  linkedin: '#0a66c2', github: '#181717', tiktok: '#000000', discord: '#5865f2',
+  twitch: '#9146ff', pinterest: '#bd081c', website: '#6366f1', email: '#6b7280',
+};
+
+function SocialIconsBlock({ content, style }: { content: SocialIconsBlockContent; style?: BlockStyle }) {
+  const items = content.items || [];
+  const sizeClass = content.size === 'sm' ? 'h-8 w-8' : content.size === 'lg' ? 'h-12 w-12' : 'h-10 w-10';
+  const iconSize = content.size === 'sm' ? 'h-4 w-4' : content.size === 'lg' ? 'h-6 w-6' : 'h-5 w-5';
+  const shapeClass = content.shape === 'circle' ? 'rounded-full' : content.shape === 'rounded' ? 'rounded-md' : 'rounded-none';
+  const alignClass = content.align === 'left' ? 'justify-start' : content.align === 'right' ? 'justify-end' : 'justify-center';
+
+  return (
+    <StyledSection style={style} defaultPaddingY="py-8">
+      <div className={`flex flex-wrap items-center gap-3 ${alignClass}`}>
+        {items.map((it, i) => {
+          const Icon = SOCIAL_ICONS[it.platform] || Globe;
+          const brand = SOCIAL_BRAND_COLORS[it.platform] || '#6366f1';
+          const stylesCommon: React.CSSProperties = content.style === 'filled' ? { backgroundColor: brand, color: '#ffffff' }
+            : content.style === 'outline' ? { borderColor: brand, color: brand, borderWidth: 2, borderStyle: 'solid' }
+            : { color: brand };
+          return (
+            <a
+              key={i}
+              href={it.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={it.platform}
+              className={`inline-flex items-center justify-center transition-transform hover:scale-110 ${sizeClass} ${shapeClass}`}
+              style={stylesCommon}
+            >
+              <Icon className={iconSize} />
+            </a>
+          );
+        })}
+      </div>
+    </StyledSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Progress bars / circles
+// ---------------------------------------------------------------------------
+
+function ProgressBlock({ content, style }: { content: ProgressBlockContent; style?: BlockStyle }) {
+  const showValue = content.show_value !== false;
+  const display = content.display || 'bar';
+
+  if (display === 'circle') {
+    return (
+      <StyledSection style={style} defaultPaddingY="py-10">
+        <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {content.items.map((it, i) => {
+            const pct = Math.max(0, Math.min(100, it.value));
+            const color = it.color || '#6366f1';
+            // SVG ring: r=40 → circumference 251.3
+            const circumference = 2 * Math.PI * 40;
+            const offset = circumference - (pct / 100) * circumference;
+            return (
+              <div key={i} className="flex flex-col items-center">
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" stroke="#e5e7eb" strokeWidth="8" fill="none" />
+                  <circle
+                    cx="50" cy="50" r="40" stroke={color} strokeWidth="8" fill="none"
+                    strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
+                    style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'stroke-dashoffset 1s ease-out' }}
+                  />
+                  {showValue && (
+                    <text x="50" y="55" textAnchor="middle" className="fill-foreground" fontSize="18" fontWeight="700">
+                      {pct}%
+                    </text>
+                  )}
+                </svg>
+                <p className="mt-2 text-sm font-medium text-foreground">{it.label}</p>
+              </div>
+            );
+          })}
+        </div>
+      </StyledSection>
+    );
+  }
+
+  return (
+    <StyledSection style={style} defaultPaddingY="py-10">
+      <div className="mx-auto max-w-3xl space-y-4">
+        {content.items.map((it, i) => {
+          const pct = Math.max(0, Math.min(100, it.value));
+          const color = it.color || '#6366f1';
+          return (
+            <div key={i}>
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="font-medium text-foreground">{it.label}</span>
+                {showValue && <span className="text-muted-foreground">{pct}%</span>}
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${pct}%`, backgroundColor: color }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </StyledSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Accordion — collapsible list (different from Tabs)
+// ---------------------------------------------------------------------------
+
+function AccordionBlock({ content, style }: { content: AccordionBlockContent; style?: BlockStyle }) {
+  const items = content.items || [];
+  const allowMultiple = !!content.allow_multiple;
+  const [open, setOpen] = useState<Set<number>>(() => {
+    if (content.default_open != null && content.default_open >= 0) {
+      return new Set([content.default_open]);
+    }
+    return new Set();
+  });
+
+  const toggle = (i: number) => {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else {
+        if (!allowMultiple) next.clear();
+        next.add(i);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className="mx-auto max-w-3xl space-y-3">
+        {items.map((item, i) => {
+          const isOpen = open.has(i);
+          return (
+            <div key={i} className="overflow-hidden rounded-lg border border-border bg-card">
+              <button
+                type="button"
+                onClick={() => toggle(i)}
+                aria-expanded={isOpen}
+                className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-accent/50"
+              >
+                <span className="text-base font-medium text-foreground">{item.title}</span>
+                <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isOpen && (
+                <div
+                  className="border-t border-border px-5 py-4 text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.content || '') }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </StyledSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Flip box
+// ---------------------------------------------------------------------------
+
+function FlipBoxBlock({ content, style }: { content: FlipBoxBlockContent; style?: BlockStyle }) {
+  const items = content.items || [];
+  const cols = content.columns ?? 3;
+  const trigger = content.trigger ?? 'hover';
+  const colsClass = cols === 1 ? 'grid-cols-1' : cols === 2 ? 'sm:grid-cols-2' : cols === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3';
+  const [flipped, setFlipped] = useState<Set<number>>(new Set());
+
+  return (
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className={`mx-auto grid max-w-6xl gap-6 ${colsClass}`}>
+        {items.map((it, i) => {
+          const isFlipped = flipped.has(i);
+          return (
+            <div
+              key={i}
+              className={`flip-card relative h-72 ${trigger === 'hover' ? 'flip-on-hover' : ''}`}
+              data-flipped={isFlipped}
+              onClick={() => {
+                if (trigger !== 'click') return;
+                setFlipped((p) => {
+                  const next = new Set(p);
+                  next.has(i) ? next.delete(i) : next.add(i);
+                  return next;
+                });
+              }}
+            >
+              <div className="flip-card-inner relative h-full w-full">
+                <div className="flip-card-front overflow-hidden rounded-xl border border-border bg-card p-6 text-center shadow-sm">
+                  {it.front_image_url ? (
+                    <img src={it.front_image_url} alt="" className="mx-auto mb-4 h-20 w-20 rounded-full object-cover" />
+                  ) : (
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-2xl text-primary">
+                      {it.front_icon || '★'}
+                    </div>
+                  )}
+                  <h3 className="text-lg font-semibold text-foreground">{it.front_title}</h3>
+                  {it.front_subtitle && <p className="mt-2 text-sm text-muted-foreground">{it.front_subtitle}</p>}
+                </div>
+                <div className="flip-card-back overflow-hidden rounded-xl bg-primary p-6 text-center text-primary-foreground shadow-md">
+                  <h3 className="text-lg font-semibold">{it.back_title}</h3>
+                  <p className="mt-2 text-sm opacity-90">{it.back_text}</p>
+                  {it.back_button_label && it.back_button_url && (
+                    <a
+                      href={it.back_button_url}
+                      className="mt-4 inline-flex items-center gap-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-primary hover:bg-white/90"
+                    >
+                      {it.back_button_label} <ArrowRight className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </StyledSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Price list — menu-style with dotted leaders
+// ---------------------------------------------------------------------------
+
+function PriceListBlock({ content, style }: { content: PriceListBlockContent; style?: BlockStyle }) {
+  return (
+    <StyledSection style={style} defaultPaddingY="py-12">
+      <div className="mx-auto max-w-3xl">
+        <ul className="divide-y divide-border">
+          {content.items.map((item, i) => {
+            const row = (
+              <li key={i} className="flex items-start gap-4 py-4">
+                {item.image_url && (
+                  <img src={item.image_url} alt="" className="h-16 w-16 flex-shrink-0 rounded-md object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-3">
+                    <h3 className="text-base font-semibold text-foreground">{item.title}</h3>
+                    <span
+                      aria-hidden="true"
+                      className="flex-1 border-b border-dotted border-border self-end mb-1"
+                    />
+                    <span className="text-base font-bold text-primary whitespace-nowrap">{item.price}</span>
+                  </div>
+                  {item.description && (
+                    <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                  )}
+                </div>
+              </li>
+            );
+            return item.link_url ? (
+              <a key={i} href={item.link_url} className="block hover:bg-accent/30 -mx-2 px-2 rounded">
+                {row}
+              </a>
+            ) : row;
+          })}
+        </ul>
+      </div>
+    </StyledSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -1039,16 +1471,22 @@ export function BlockRenderer({ block }: { block: CmsBlock }) {
   if (!block.is_visible) return null;
 
   const content = block.content as Record<string, unknown>;
+  // Universal styling (background, padding, borders, radius, shadow, fonts,
+  // alignment, animation) lives in `settings.style`. Each block that opts in
+  // forwards this to `<StyledSection>`.
+  const style = (block.settings as BlockSettings | undefined)?.style;
 
   switch (block.block_type) {
     case 'hero':
-      return <HeroBlock content={content as unknown as HeroBlockContent} />;
+      return <HeroBlock content={content as unknown as HeroBlockContent} style={style} />;
+    case 'heading':
+      return <HeadingBlock content={content as unknown as HeadingBlockContent} style={style} />;
     case 'text':
-      return <TextBlock content={content as unknown as TextBlockContent} />;
+      return <TextBlock content={content as unknown as TextBlockContent} style={style} />;
     case 'image':
-      return <ImageBlock content={content as unknown as ImageBlockContent} />;
+      return <ImageBlock content={content as unknown as ImageBlockContent} style={style} />;
     case 'gallery':
-      return <GalleryBlock content={content as unknown as GalleryBlockContent} />;
+      return <GalleryBlock content={content as unknown as GalleryBlockContent} style={style} />;
     case 'video':
       return <VideoBlock content={content as unknown as VideoBlockContent} />;
     case 'map':
@@ -1060,17 +1498,17 @@ export function BlockRenderer({ block }: { block: CmsBlock }) {
     case 'contact_form':
       return <ContactFormBlock content={content as unknown as ContactFormBlockContent} />;
     case 'faq':
-      return <FaqBlock content={content as unknown as FaqBlockContent} />;
+      return <FaqBlock content={content as unknown as FaqBlockContent} style={style} />;
     case 'countdown':
       return <CountdownBlock content={content as unknown as CountdownBlockContent} />;
     case 'custom_html':
       return <CustomHtmlBlock content={content as unknown as CustomHtmlBlockContent} />;
     case 'image_text':
-      return <ImageTextBlock content={content as unknown as ImageTextBlockContent} />;
+      return <ImageTextBlock content={content as unknown as ImageTextBlockContent} style={style} />;
     case 'cta':
-      return <CtaBlock content={content as unknown as CtaBlockContent} />;
+      return <CtaBlock content={content as unknown as CtaBlockContent} style={style} />;
     case 'testimonial':
-      return <TestimonialBlock content={content as unknown as TestimonialBlockContent} />;
+      return <TestimonialBlock content={content as unknown as TestimonialBlockContent} style={style} />;
     case 'pricing_table':
       return <PricingTableBlock content={content as unknown as PricingTableBlockContent} />;
     case 'icon_box':
@@ -1078,7 +1516,7 @@ export function BlockRenderer({ block }: { block: CmsBlock }) {
     case 'team_member':
       return <TeamMemberBlock content={content as unknown as TeamMemberBlockContent} />;
     case 'stats':
-      return <StatsBlock content={content as unknown as StatsBlockContent} />;
+      return <StatsBlock content={content as unknown as StatsBlockContent} style={style} />;
     case 'separator':
       return <SeparatorBlock content={content as unknown as SeparatorBlockContent} />;
     case 'spacer':
@@ -1087,10 +1525,24 @@ export function BlockRenderer({ block }: { block: CmsBlock }) {
       return <AlertBlock content={content as unknown as AlertBlockContent} />;
     case 'tabs':
       return <TabsBlock content={content as unknown as TabsBlockContent} />;
+    case 'accordion':
+      return <AccordionBlock content={content as unknown as AccordionBlockContent} style={style} />;
     case 'logo_carousel':
       return <LogoCarouselBlock content={content as unknown as LogoCarouselBlockContent} />;
     case 'button':
       return <ButtonBlock content={content as unknown as ButtonBlockContent} />;
+    case 'animated_heading':
+      return <AnimatedHeadingBlock content={content as unknown as AnimatedHeadingBlockContent} style={style} />;
+    case 'blockquote':
+      return <BlockquoteBlock content={content as unknown as BlockquoteBlockContent} style={style} />;
+    case 'social_icons':
+      return <SocialIconsBlock content={content as unknown as SocialIconsBlockContent} style={style} />;
+    case 'progress':
+      return <ProgressBlock content={content as unknown as ProgressBlockContent} style={style} />;
+    case 'flip_box':
+      return <FlipBoxBlock content={content as unknown as FlipBoxBlockContent} style={style} />;
+    case 'price_list':
+      return <PriceListBlock content={content as unknown as PriceListBlockContent} style={style} />;
     default:
       return null;
   }

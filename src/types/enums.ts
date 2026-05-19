@@ -49,6 +49,7 @@ export type ApplicationStatus =
 /** CMS block types available in the page builder. */
 export type BlockType =
   | 'hero'
+  | 'heading'
   | 'text'
   | 'image'
   | 'gallery'
@@ -71,8 +72,15 @@ export type BlockType =
   | 'spacer'
   | 'alert'
   | 'tabs'
+  | 'accordion'
   | 'logo_carousel'
-  | 'button';
+  | 'button'
+  | 'animated_heading'
+  | 'blockquote'
+  | 'social_icons'
+  | 'progress'
+  | 'flip_box'
+  | 'price_list';
 
 /** Whether a budget entry represents income or an expense. */
 export type BudgetEntryType = 'income' | 'expense';

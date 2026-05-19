@@ -61,3 +61,40 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* ─── CMS block animations (consumed by StyledSection) ────────────────── */
+@layer utilities {
+  @keyframes fest-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes fest-slide-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fest-slide-down {
+    from { opacity: 0; transform: translateY(-24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fest-zoom-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .animate-fade-in   { animation: fest-fade-in   0.6s ease-out both; }
+  .animate-slide-up  { animation: fest-slide-up  0.6s ease-out both; }
+  .animate-slide-down{ animation: fest-slide-down 0.6s ease-out both; }
+  .animate-zoom-in   { animation: fest-zoom-in   0.6s ease-out both; }
+
+  /* Flip-box 3D — driven by data attribute */
+  .flip-card { perspective: 1000px; }
+  .flip-card-inner { transform-style: preserve-3d; transition: transform 0.6s ease; }
+  .flip-card[data-flipped="true"] .flip-card-inner,
+  .flip-card.flip-on-hover:hover .flip-card-inner { transform: rotateY(180deg); }
+  .flip-card-front, .flip-card-back {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    position: absolute;
+    inset: 0;
+  }
+  .flip-card-back { transform: rotateY(180deg); }
+}
